@@ -1,7 +1,7 @@
 import os
 import sys
 import argparse
-from modules.utils import get_bams_from_list, get_annotation_resources
+from modules.utils import get_bams_from_list, set_annotation_resources, set_sample_configuration
 from modules.fragmentomics import run_fragmentomic_analysis
 
 main_dir = os.path.dirname(os.path.realpath(__file__))
@@ -35,11 +35,14 @@ if __name__ == "__main__":
     tumor_bams = get_bams_from_list(tumor_list)
     normal_bams = get_bams_from_list(normal_list)
 
+
+    ann_dict = set_annotation_resources(main_dir)
+
+    sample_list =  set_sample_configuration(tumor_bams, normal_bams)
+
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
 
-    ann_dict = get_annotation_resources(main_dir)
 
-    run_fragmentomic_analysis(normal_bams, ann_dict, genome, output_dir, threads, window_size=5000000)
-    # run_fragmentomic_analysis(tumor_bams, ann_dict, genome, output_dir, threads, window_size=5000000)
+    run_fragmentomic_analysis(sample_list, ann_dict, genome, output_dir, threads, window_size=5000000)
 
