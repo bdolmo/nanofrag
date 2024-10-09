@@ -220,8 +220,7 @@ def plot_fragment_histogram(input_file, output_png, analysis_type):
     # Save the plot
     plt.savefig(output_histogram)
 
-    # Save the plot
-    plt.savefig(output_histogram)
+
     msg = f" INFO: Histogram of read sizes saved to {output_histogram}"
     print(msg)
 
