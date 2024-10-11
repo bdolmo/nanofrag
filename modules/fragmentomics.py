@@ -205,6 +205,10 @@ def plot_fragment_histogram(input_file, output_png, analysis_type):
     """ 
     """
     fragment_sizes = pd.read_csv(input_file, header=None, names=['Fragment_Size'])
+
+
+
+
     plt.figure(figsize=(10, 6))
     sns.histplot(fragment_sizes['Fragment_Size'], bins=7000, kde=False, color="blue")
 
@@ -253,16 +257,26 @@ def plot_fragment_distribution(sample_list, fragment_png):
 
     colors = ["red", "green", "blue"]
     idx = 0
+    mode_vals = []
+    max_val = 0
+    max_vals = []
     for col in result.columns:
         if col == "":
             continue
-        print(col)
+        mode_val = result[col].mode()
+        mode_vals.append(mode_val)
+        # print(col)
+        max_val = max(result[col])
+        max_vals.append(max_val)
+        print(max_val)
 
         color = colors[idx]
-
         # kmeans_input = np.array(result[col].values.tolist())
         # kmeans_input = np.reshape(kmeans_input, (-1, 2))
         # kmeans = KMeans(n_clusters=3).fit(kmeans_input)
+        # print(kmeans.cluster_centers_)
+        # sys.exit()
+        # sns.distplot(result[col], kde = True, color=color)
 
         sns.histplot(result[col], bins=8000, label=col, kde=False, color=color, alpha=0.5)
         idx+=1
@@ -274,6 +288,13 @@ def plot_fragment_distribution(sample_list, fragment_png):
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     plt.xlim(0, 800)
+    for idx,mode in enumerate(mode_vals):
+
+        max_val = max_vals[idx]
+        print(mode.iloc[0], max_val)
+        plt.axvline(x=mode.iloc[0], ymin=0, ymax=max_val, color="white", linestyle="--")
+        # plt.text(mode.iloc[0]+2, max_val+2, mode.iloc[0], rotation=60, va='center')
+
     plt.tight_layout()
     plt.legend(title="Samples")
 

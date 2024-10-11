@@ -1,181 +1,300 @@
 import os
-import sys
 import subprocess
 import re
 from collections import defaultdict
+from bx.intervals.intersection import Intersecter, Interval
 import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
-import bisect
+import numpy as np
+from modules.utils import get_chromosome_sizes
+import gzip
+
+import math
+
 from scipy.signal import savgol_filter
+
+
+def call_peaks(z_scores_file, peaks_bed, start=1):
+    """ """
+
+    o = open(wig_file, "w")
+
+    first_chrom = ""
+
+    first_pos = False
+
+    with open(z_scores_file) as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if line.startswith("chrom\t"):
+                continue
+            tmp = line.split("\t")
+            chrom = tmp[0]
+            pos = tmp[1]
+
+            score = tmp[-1]
+
+            if not first_pos:
+                score_list = []
+                positions_list = []
+                first_pos = True
+                low_scores = 0
+
+            if score > -1 and first_pos:
+                score_list.append(score)
+                positions_list.append(pos)
+
+
+            # if chrom != first_chrom:
+            #     first_chrom = chrom
+            #     o.write(f"fixedStep chrom={chrom} start={start} step=1\n")
+            # o.write(tmp[-1]+"\n")
+    f.close()
+    o.close()
+
+
+def create_wig(z_scores_file, wig_file, start=0):
+    """ """
+
+    o = open(wig_file, "w")
+
+    first_chrom = ""
+
+    with open(z_scores_file) as f:
+        for line in f:
+            line = line.rstrip("\n")
+            if line.startswith("chrom\t"):
+                continue
+            tmp = line.split("\t")
+            chrom = tmp[0]
+            if chrom != first_chrom:
+                first_chrom = chrom
+                o.write(f"fixedStep chrom={chrom} start={start} step=1\n")
+            o.write(tmp[-1]+"\n")
+    f.close()
+    o.close()
+
+
+
+def calculate_z_scores(wps_txt, sample_name, output_dir):
+    """Calculates z-scores for 1kb windows directly from the WPS file."""
+
+    # Open the WPS file for reading
+    with open(wps_txt, "r") as f:
+        lines = f.readlines()
+
+    window_size = 500  # 1kb window
+    current_window = []
+    z_scores = []
+
+    zscore_txt = os.path.join(output_dir, f"{sample_name}.z_scores.tsv")
+    
+    # Open the output file for writing z-scores
+    with open(zscore_txt, "w") as out:
+        out.write("chrom\tstart\tend\tWPS\tz_score\n")
+
+        # Process the WPS values in 1kb windows
+        for i in range(0, len(lines), window_size):
+            current_window = []
+
+            # Collect WPS values for the current 1kb window
+            for j in range(i, min(i + window_size, len(lines))):
+                line = lines[j].strip()
+                if not line:
+                    continue
+
+                try:
+                    chrom, start, end, wps = line.split("\t")
+                    wps = float(wps)  # Convert WPS to a float value
+                    current_window.append((chrom, int(start), int(end), wps))
+                except ValueError:
+                    # Handle malformed lines
+                    continue
+
+            # Calculate mean and standard deviation for the current window
+            if current_window:
+                mean_wps = sum([x[3] for x in current_window]) / len(current_window)
+                variance = sum([(x[3] - mean_wps) ** 2 for x in current_window]) / len(current_window)
+                std_wps = math.sqrt(variance)
+
+                w_zscores = []
+
+                # Compute z-scores for the current window
+                for chrom, start, end, wps in current_window:
+                    if std_wps > 0:
+                        z_score = (wps - mean_wps) / std_wps
+                    else:
+                        z_score = 0  # If std is 0, set z-score to 0
+                    w_zscores.append(z_score)
+                if len(w_zscores) >= 100:
+                    z_scores = savgol_filter(w_zscores, 100, 2)
+                else:
+                    z_scores = w_zscores
+                idx = 0
+                for chrom, start, end, wps in current_window:
+                    z_score = z_scores[idx]
+                    # Write the result to the output file
+                    out.write(f"{chrom}\t{start}\t{end}\t{wps}\t{z_score}\n")
+                    idx+=1
+
+
+def plot_z_scores_txt(sample_name, zscore_txt, output_png):
+    """Plots the z-scores directly from the z-score file."""
+
+    # Prepare lists to hold the data for plotting
+    positions = []
+    z_scores = []
+
+    # Read the z-score file and extract positions and z-scores
+    with open(zscore_txt, "r") as f:
+        for line in f.readlines()[1:]:  # Skip header
+            try:
+                _, start, _, _, z_score = line.strip().split("\t")
+                positions.append(int(start))
+                z_scores.append(float(z_score))
+            except ValueError:
+                # Skip lines that cannot be parsed
+                continue
+    # z_scores = savgol_filter(z_scores, 200, 2)
+
+    plt.figure(figsize=(20, 4))
+    plt.plot(positions, z_scores, linestyle="-")
+    plt.title(sample_name, fontsize=18)
+    plt.xlabel("Genomic Position", fontsize=15)
+    plt.ylabel("WPS z-score", fontsize=15)
+    plt.ylim(-5, 5)
+    plt.savefig(output_png)
+    plt.close()
 
 
 def get_corrected_positions(cigar, pos, sequence_length):
     """
     Calculate the actual fragment size by subtracting soft-clipped portions from the ends.
     """
-    # Regex to find soft-clipping at the start (beginning of the string) and end (end of the string)
-    softclip_start = re.match(r"^(\d+)S", cigar)  # Matches soft-clipping at the start (e.g., 5S...)
-    softclip_end = re.search(r"(\d+)S$", cigar)   #} Matches soft-clipping at the end (e.g., ...5S)
+    softclip_start = re.match(r"^(\d+)S", cigar)
+    softclip_end = re.search(r"(\d+)S$", cigar)
 
     start = pos
-    end = pos+sequence_length
+    end = pos + sequence_length
 
-    # Subtract soft-clipping at the start
     if softclip_start:
         s_start = softclip_start.group(1)
-        sequence_length -= int(softclip_start.group(1))
-        start = start+int(s_start)
-    # Subtract soft-clipping at the end
+        sequence_length -= int(s_start)
+        start += int(s_start)
     if softclip_end:
         s_end = softclip_end.group(1)
-        sequence_length -= int(softclip_end.group(1))
-        end = end-int(s_end)
+        sequence_length -= int(s_end)
+        end -= int(s_end)
 
-    out_dict = {
-        "start": start,
-        "end": end
-    }
-    return out_dict
+    return {"start": start, "end": end}
 
 
+def windowed_protection_scores(sample_list, ann_dict, bin_dict, output_dir, region, protection=120):
+    """Calculate WPS for each base with a 120 bp window and plot the Z-scores."""
 
+    chrom_sizes_dict = get_chromosome_sizes(ann_dict["chromosomes"])
 
+    if region:
+        tmp_region = re.split(r"[:-]", region)
+        r_chrom = tmp_region[0]
+        r_pos = int(tmp_region[1])
+        r_end = int(tmp_region[2])
 
-def create_wps_windows(chrom_sizes, selected_chromosome):
-    wps = defaultdict(dict)
-    
-    with open(chrom_sizes) as f:
-        for line in f:
-            line = line.rstrip("\n")
-            tmp = line.split("\t")
-            
-            chrom = tmp[0]
-            if chrom != selected_chromosome:
-                continue
+    window_size = protection
+    half_window = window_size // 2
+    protection_half = protection // 2
 
-            end = int(tmp[1])
-
-            if chrom not in wps:
-                wps[chrom] = []
-
-            # Creating windows and storing their start positions for binary search
-            start_positions = []
-            for i in range(0, end, 120):
-                window_dict = {
-                    "start": i,
-                    "end": i + 120,
-                    "wps": 0
-                }
-                wps[chrom].append(window_dict)
-                start_positions.append(i)
-
-    return wps, start_positions
-
-# Function to perform a fast intersection search
-def find_window_for_position(wps_windows, start_positions, pos, end):
-    idx = bisect.bisect_left(start_positions, pos)
-        
-    if idx < len(start_positions):
-        window = wps_windows[idx]
-        if window["start"] <= pos < window["end"]:
-            return window
-        if window["start"] <= end < window["end"]:
-            return window
-    return None
-
-
-def windowed_protection_scores(sample_list, ann_dict, output_dir):
-    """ """
-
-    w = 80
     for sample in sample_list:
         bam_file = sample.bam
-        window_start = ""
-        WPS = {}
+        posRange = defaultdict(lambda: [0, 0, 0])  # First for coverage, second for starts/ends, third for WPS
 
-        # result = create_wps_windows(ann_dict["chromosomes"], "chr1")
-        # WPS = result[0]
-        # start_positions = result[1]
+        filteredReads = Intersecter()  # Use for interval intersection
 
-        cmd = f"samtools view {bam_file} chr1:1000000-1200000"
+        if region:
+            cmd = f"samtools view {bam_file} {r_chrom}:{r_pos}-{r_end}"
+        else:
+            cmd = f"samtools view {bam_file} chr12:34443233-34453733"
+
+        wps_txt = os.path.join(output_dir, f"{sample.name}.windowed_wps.tsv")
+        o = open(wps_txt, "w")
+        o.write("chr\tstart\tend\tWPS\n")
+
         with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, text=True) as proc:
             for line in proc.stdout:
                 fields = line.split("\t")
-                chrom = fields[2]
-
                 if len(fields) < 10:
                     continue
-                mapqual = int(fields[4])  # Mapping quality
-                if mapqual < 20:
-                    continue
-                pos = int(fields[3])
-                sequence = fields[9]  # Sequence
-                cigar = fields[5]  # CIGAR string
 
-                # Get the actual read coordinates by adjusting for soft-clipping
+                chrom = fields[2]
+                mapqual = int(fields[4])
+                if mapqual < 10:
+                    continue
+
+                pos = int(fields[3])
+                sequence = fields[9]
+                cigar = fields[5]
+
                 coords_dict = get_corrected_positions(cigar, pos, len(sequence))
 
-                # window = find_window_for_position(WPS[chrom], start_positions, coords_dict["start"], coords_dict["end"])
-                
-                if not window_start:
-                    window_start = coords_dict["start"]
-                    window_end = window_start + w
-                
-                if coords_dict["start"] > window_end:
-                    window_start = coords_dict["start"]
-                    window_end = window_start + w
+                rstart = coords_dict["start"]
+                rend = coords_dict["end"]
 
-                window_coord = f"{chrom}\t{window_start}\t{window_end}"
-                if not window_coord in WPS:
-                    WPS[window_coord] = defaultdict(dict)
-                    windows_dict = {
-                        "spanning_reads": 0,
-                        "endpoint_reads": 0
-                    }
-                
-                if coords_dict["start"] <= window_start and coords_dict["end"] >= window_end:
-                    windows_dict["spanning_reads"] += 1
-                if (coords_dict["start"] >= window_start and coords_dict["start"] < window_end) or (coords_dict["end"] >= window_start and coords_dict["end"] < window_end):
-                    windows_dict["endpoint_reads"] += 1
-                
-                WPS[window_coord] = windows_dict
-                # print(line, coords_dict, window_coord, windows_dict)
-    
-        wps_txt = os.path.join(output_dir, f"{sample.name}.wps.tsv")
-        wps_png = wps_txt.replace(".tsv", ".png")
-        o = open(wps_txt, "w")
-        o.write("chr\tstart\tend\tWPS\n")
-        for coordinate in WPS:
-            WPS[coordinate]["wps"] = WPS[coordinate]["spanning_reads"]-WPS[coordinate]["endpoint_reads"] 
-            print(coordinate, WPS[coordinate])
-            o.write(f'{coordinate}\t{WPS[coordinate]["wps"]}'+"\n")
+                fragment_size = rend-rstart
+                if fragment_size < 120:
+                    continue
+                if fragment_size > 180:
+                    continue
+                # Add interval to filteredReads for protection calculation later
+                filteredReads.add_interval(Interval(rstart, rend))
+
+                # Process positions and store start/end info in posRange
+                for i in range(rstart, rend + 1):
+                    if r_pos <= i <= r_end:
+                        posRange[i][0] += 1  # Total reads covering the position
+                if r_pos <= rstart <= r_end:
+                    posRange[rstart][1] += 1  # Start of a read
+                if r_pos <= rend <= r_end:
+                    posRange[rend][1] += 1  # End of a read
+
+        # Calculate WPS using the protection windows
+        for pos in range(r_pos, r_end + 1):
+            rstart_window = pos - protection_half
+            rend_window = pos + protection_half
+            gcount, bcount = 0, 0
+
+            # Check for intervals in the window and calculate WPS
+            for read in filteredReads.find(rstart_window, rend_window):
+                if read.start > rstart_window or read.end < rend_window:
+                    bcount += 1
+                else:
+                    gcount += 1
+
+            posRange[pos][2] += gcount - bcount  # WPS calculation
+
+            # Write WPS to the output file
+            o.write(f"{chrom}\t{pos}\t{pos}\t{posRange[pos][2]}\n")
+
         o.close()
 
-        plot_wps(wps_txt, wps_png)
+        # Calculate z-scores and plot them
+        calculate_z_scores(wps_txt, sample.name, output_dir)
+        zscore_txt = os.path.join(output_dir, f"{sample.name}.z_scores.tsv")
+        output_png = zscore_txt.replace(".tsv", ".png")
 
-        sys.exit()
+        plot_z_scores_txt(sample.name, zscore_txt, output_png)
 
-def plot_wps(input_txt, output_png):
-    """ """
+        wig_file = zscore_txt.replace(".tsv", ".wig")
+        create_wig(zscore_txt, wig_file, start=r_pos)
 
-    df = pd.read_csv(input_txt, sep="\t")
+
+
+def plot_z_scores(df, output_png):
+    """Plots the z-scores from the DataFrame."""
     plt.figure(figsize=(20, 4))
-    window_size = 15
-    poly_order = 4
-    y_smooth = savgol_filter(df["WPS"], window_size, poly_order)
-    df["WPS"] = y_smooth
-
-    sns.lineplot(data=df, x="start", y="WPS")
-
-    # Set titles and labels
-    plt.xlabel("Position (Mb)", fontsize=14)
-    plt.ylabel("WPS", fontsize=14)
-    plt.xticks(fontsize=12)
-    plt.yticks(fontsize=12)
-    plt.tight_layout()
-
-    # Save the plot
+    sns.lineplot(data=df, x="start", y="z_score")
+    plt.title("Z-Scores of Windowed Protection Score (WPS)")
+    plt.xlabel("Genomic Position")
+    plt.ylabel("Z-Score")
     plt.savefig(output_png)
-
-    print(df)
+    plt.close()

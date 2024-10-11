@@ -20,6 +20,27 @@ class Sample:
         return self._name
     
 
+def get_chromosome_sizes(chrom_sizes):
+    """ """
+    chrom_sizes_dict = {}
+    with open(chrom_sizes) as f:
+        for line in f:
+            line = line.rstrip("\n")
+            tmp = line.split("\t")
+            
+            chrom = tmp[0]
+            end = int(tmp[1])
+            chrom_sizes_dict[chrom] = end
+    return chrom_sizes_dict
+
+def get_binaries_configuration(main_dir)
+    """ """
+    bin_dict = {
+        "wigToBigWig" : os.path.join(main_dir, "bin", "wigToBigWig"),
+    }
+    return bin_dict
+
+
 def set_sample_configuration(tumor_bams, normal_bams):
     """ """
     sample_list = []

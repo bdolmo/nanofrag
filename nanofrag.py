@@ -44,6 +44,7 @@ if __name__ == "__main__":
 
     ann_dict = set_annotation_resources(main_dir)
     sample_list =  set_sample_configuration(tumor_bams, normal_bams)
+    bin_dict = get_binaries_configuration(main_dir)
 
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
@@ -52,6 +53,9 @@ if __name__ == "__main__":
         run_fragmentomic_analysis(sample_list, ann_dict, genome, output_dir, threads, window_size=5000000)
     
     if skip_wps == False:
-        windowed_protection_scores(sample_list, ann_dict, output_dir)
+        # windowed_protection_scores(sample_list, ann_dict, output_dir)
+        region = "chr12:34430233-34443233"
+        # region = ""
+        windowed_protection_scores(sample_list, ann_dict, bin_dict, output_dir, region)
     
 
