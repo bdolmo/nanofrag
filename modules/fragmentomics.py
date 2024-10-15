@@ -7,21 +7,53 @@ import subprocess
 import bisect
 from sklearn.cluster import KMeans
 import numpy as np
+import re
+
+import multiprocessing
+
+
+
+
+# Define your function to process a single chromosome
+def process_chromosome(chrom, sample_bam, windows_bed):
+    """ """
+    msg = f" INFO: Processing chromosome {chrom}"
+    print(msg)
+    return get_fragmentation_metrics_for_chrom(sample_bam, windows_bed, chrom)
+
+# Main function to execute the multiprocessing
+def parallel_process_fragments(sample, windows_bed, chromosomes, threads):
+    """ """
+    # Create a pool of workers
+    with multiprocessing.Pool(threads) as pool:
+        # Distribute the tasks across the pool of workers
+        results = pool.starmap(process_chromosome, [(chrom, sample.bam, windows_bed) for chrom in chromosomes])
+    return results
 
 
 def create_windows(ann_dict, window_size, windows_bed):
     """
     Create windows of given size across the genome using bedtools.
     """
+
+
+    min_window = 1000000
+
+    windows_100kb = windows_bed.replace(".bed", f"{1000000}.tmp.bed")
     windows_tmp = windows_bed.replace(".bed", ".tmp.bed")
 
-    cmd = f'bedtools makewindows -g {ann_dict["chromosomes"]} -w {window_size} > {windows_tmp}'
+    cmd = f'bedtools makewindows -g {ann_dict["chromosomes"]} -w {min_window} | bedtools intersect -a stdin -b {ann_dict["blacklist"]} -v > {windows_bed}'
+    print(cmd)
     subprocess.run(cmd, shell=True, check=True)
 
-    cmd = f'bedtools subtract -a {windows_tmp} -b {ann_dict["blacklist"]} > {windows_bed}'
-    subprocess.run(cmd, shell=True, check=True)
+    # cmd = f'bedtools makewindows -g {ann_dict["chromosomes"]} -w {window_size} > {windows_tmp}'
+    # subprocess.run(cmd, shell=True, check=True)
 
-    print(f" INFO: Windows created and saved to {windows_bed}")
+    # cmd = f'bedtools subtract -a {windows_tmp} -b {ann_dict["blacklist"]} > {windows_bed}'
+    # subprocess.run(cmd, shell=True, check=True)
+
+    msg = f" INFO: Windows created and saved to {windows_bed}"
+    print(msg)
 
 
 def load_windows(windows_bed):
@@ -55,7 +87,7 @@ def parse_samtools_output(output, windows):
     """
     Parse the output from samtools to compute read counts and fragment sizes for each window.
     """
-    metrics = {window: {"read_count": 0, "short_fragments": 0, "long_fragments": 0} for window in windows}
+    metrics = {window: {"read_count": 0, "ultra_short_fragments": 0, "short_fragments": 0, "long_fragments": 0} for window in windows}
 
     # Precompute window start positions for efficient binary search by chromosome
     window_starts = {}
@@ -76,7 +108,17 @@ def parse_samtools_output(output, windows):
         fields = line.split("\t")
         chrom = fields[2]
         read_start = int(fields[3])
-        fragment_size = abs(int(fields[8]))  # Fragment length (TLEN field)
+
+        if len(fields) < 10:
+            continue
+
+        sequence = fields[9]  # Sequence
+        mapqual = int(fields[4])  # Mapping quality
+        cigar = fields[5]  # CIGAR string
+        # Get the actual fragment size by adjusting for soft-clipping
+        fragment_size = calculate_actual_fragment_size(cigar, len(sequence))
+
+        # fragment_size = abs(int(fields[8]))  # Fragment length (TLEN field)
 
         # Find the window that this read belongs to
         window = find_window_for_read(chrom, read_start, windows_by_chrom, window_starts, window_ends_by_chrom)
@@ -86,19 +128,23 @@ def parse_samtools_output(output, windows):
             metrics[window]["read_count"] += 1
 
             # Count short vs. long fragments (DELFI-like fragment size separation)
-            if 0 < fragment_size <= 150:
+
+            if 0 < fragment_size <= 80:
+                metrics[window]["ultra_short_fragments"] += 1
+            if 80 < fragment_size <= 165:
                 metrics[window]["short_fragments"] += 1
-            elif fragment_size > 150:
+            elif fragment_size > 165:
                 metrics[window]["long_fragments"] += 1
 
     # Now calculate the DELFI ratio for each window
     for window_key, data in metrics.items():
+        ultra_short_fragments = data["ultra_short_fragments"]
         short_fragments = data["short_fragments"]
         long_fragments = data["long_fragments"]
-        total_fragments = short_fragments + long_fragments
+        total_fragments = ultra_short_fragments+short_fragments + long_fragments
 
         if total_fragments > 0:
-            fragment_ratio = short_fragments / total_fragments
+            fragment_ratio = (ultra_short_fragments+short_fragments) / total_fragments
         else:
             fragment_ratio = 0
 
@@ -139,7 +185,6 @@ def save_metrics_to_file(metrics, output_file):
     msg = f" INFO: Fragmentation metrics saved to {output_file}"
     print(msg)
 
-import re
 
 def calculate_actual_fragment_size(cigar, sequence_length):
     """
@@ -175,17 +220,17 @@ def get_read_size_histogram(bam_file, output_txt, limit=5000000):
     if not os.path.isfile(output_txt):
         with open(output_txt, 'w') as out_file:
             # Use samtools to stream the BAM file and limit to first 50 million reads
-            cmd = f"samtools view {bam_file}"
+            cmd = f"samtools view {bam_file} chr1"
             with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, text=True) as proc:
                 count = 0
                 for line in proc.stdout:
                     if count >= limit:
                         break
 
+                    fields = line.split("\t")
                     if len(fields) < 10:
                         continue
 
-                    fields = line.split("\t")
                     sequence = fields[9]  # Sequence
                     mapqual = int(fields[4])  # Mapping quality
                     cigar = fields[5]  # CIGAR string
@@ -201,13 +246,11 @@ def get_read_size_histogram(bam_file, output_txt, limit=5000000):
     
     return output_txt
 
+
 def plot_fragment_histogram(input_file, output_png, analysis_type):
     """ 
     """
     fragment_sizes = pd.read_csv(input_file, header=None, names=['Fragment_Size'])
-
-
-
 
     plt.figure(figsize=(10, 6))
     sns.histplot(fragment_sizes['Fragment_Size'], bins=7000, kde=False, color="blue")
@@ -231,16 +274,54 @@ def plot_fragment_histogram(input_file, output_png, analysis_type):
 
 def run_fragmentomic_analysis(sample_list, ann_dict, genome, output_dir, num_cpus, window_size=5000000):
     """ """
+
+    fragment_folder = os.path.join(output_dir, "FRAGMENTATION")
+    if not os.path.isdir(fragment_folder):
+        os.mkdir(fragment_folder)
+
+
+    # Frament Size Ratio (FSR)
+    windows_bed = os.path.join(fragment_folder, f"windows_{window_size}.bed")
+    if not os.path.isfile(windows_bed):
+        create_windows(ann_dict, window_size, windows_bed)
+
+    chromosomes = [(f"chr{i}") for i in range(1, 23)]
+
     for sample in sample_list:
-        fragment_sizes_txt = os.path.join(output_dir, f"{sample.name}.fragment.sizes.txt")
+        fragment_bed = os.path.join(fragment_folder, f"{sample.name}.fragmentation.data.bed")
+        sample.add("fragment_data", fragment_bed)
+        if not os.path.isfile(fragment_bed):
+            o = open(fragment_bed, "a")
+            o.write("chr\tpos\tend\tread_count\tultra_short_fragments\tshort_fragments\tlong_fragments\tfragment_size_ratio\n")
+            results = parallel_process_fragments(sample, windows_bed, chromosomes, num_cpus)
+
+            for chromdata in results:
+                for region in chromdata:
+                    read_count = chromdata[region]["read_count"]
+                    ultra_short_fragments = chromdata[region]["ultra_short_fragments"]
+
+
+                    short_fragments = chromdata[region]["short_fragments"]
+                    long_fragments = chromdata[region]["long_fragments"]
+                    fragment_size_ratio = chromdata[region]["fragment_size_ratio"]
+                    o.write(f"{region[0]}\t{region[1]}\t{region[2]}\t{read_count}\t{ultra_short_fragments}\t{short_fragments}\t{long_fragments}\t{fragment_size_ratio}\n")
+            o.close()
+
+
+    for sample in sample_list:
+        fragment_sizes_txt = os.path.join(fragment_folder, f"{sample.name}.fragment.sizes.txt")
         sample.add("fragment_sizes_txt", fragment_sizes_txt)
 
         # get data from fragmentation distribution
         if not os.path.isfile(fragment_sizes_txt):
             get_read_size_histogram(sample.bam, fragment_sizes_txt)
-    
-    fragment_png = os.path.join(output_dir, "framgmentation.histogram.png")
-    plot_fragment_distribution(sample_list, fragment_png)
+
+    fragment_png = os.path.join(fragment_folder, "framgmentation.histogram.png")
+    if not os.path.isfile(fragment_png):
+        plot_fragment_distribution(sample_list, fragment_png)
+
+    return sample_list
+        
 
 
 def plot_fragment_distribution(sample_list, fragment_png):
@@ -255,7 +336,7 @@ def plot_fragment_distribution(sample_list, fragment_png):
 
     plt.figure(figsize=(10, 6))
 
-    colors = ["red", "green", "blue"]
+    colors = ["red", "darkred", "blue", "darkblue"]
     idx = 0
     mode_vals = []
     max_val = 0
@@ -268,7 +349,7 @@ def plot_fragment_distribution(sample_list, fragment_png):
         # print(col)
         max_val = max(result[col])
         max_vals.append(max_val)
-        print(max_val)
+        # print(max_val)
 
         color = colors[idx]
         # kmeans_input = np.array(result[col].values.tolist())
@@ -305,32 +386,6 @@ def plot_fragment_distribution(sample_list, fragment_png):
     print(msg)
 
 
-
-        # plot_fragment_histogram(histogram_txt, histogram_png, analysis_type)
-
-    # for bam in bams:
-
-    #     windows_bed = os.path.join(output_dir, f"windows_{str(window_size)}.bed")
-    #     sys.exit()
-    #     create_windows(ann_dict, window_size, windows_bed)
-
-
-    #     summary_metrics_tsv = os.path.join(output_dir, f"{bam_name}.summary.fragmentation.tsv")
-
-
-    #     # Get list of chromosomes from the genome file
-    #     chromosomes = [line.strip().split()[0] for line in open(ann_dict["chromosomes"], 'r')]
-
-    #     # Create a pool of workers and run in parallel
-    #     with multiprocessing.Pool(num_cpus) as pool:
-    #         results = pool.starmap(process_chromosome, [(bam, windows_bed, chrom) for chrom in chromosomes])
-
-    #     # Combine results from all chromosomes
-    #     all_window_metrics = {}
-    #     for chrom, chrom_window_metrics in results:
-    #         all_window_metrics.update(chrom_window_metrics)
-
-    #     save_metrics_to_file(all_window_metrics, summary_metrics_tsv)
 
 
 

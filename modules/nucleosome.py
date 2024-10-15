@@ -15,15 +15,12 @@ import math
 from scipy.signal import savgol_filter
 
 
-def call_peaks(z_scores_file, peaks_bed, start=1):
+def call_peaks(z_scores_file, peaks_bed):
     """ """
 
-    o = open(wig_file, "w")
-
     first_chrom = ""
-
     first_pos = False
-
+    first_start = ""
     with open(z_scores_file) as f:
         for line in f:
             line = line.rstrip("\n")
@@ -31,19 +28,38 @@ def call_peaks(z_scores_file, peaks_bed, start=1):
                 continue
             tmp = line.split("\t")
             chrom = tmp[0]
-            pos = tmp[1]
-
-            score = tmp[-1]
+            pos = int(tmp[1])
+            score = float(tmp[-1])
 
             if not first_pos:
                 score_list = []
                 positions_list = []
                 first_pos = True
+                first_chrom = chrom
                 low_scores = 0
+                total_length = 0
+                first_start = pos
 
-            if score > -1 and first_pos:
+            if score >= -1 and first_pos:
                 score_list.append(score)
+                if score < 0:
+                    low_scores+=1
+                total_length+=1
                 positions_list.append(pos)
+
+            if score < -1 or low_scores >= 5:
+                first_pos = False
+                if total_length >= 80 and total_length < 250:
+                    # found cluster
+                    end = first_start + total_length
+                    mean_score = np.mean(score_list)
+                    print(chrom, first_start, end, mean_score, sep="\t")
+                # first_start = 0
+                # first_chrom = chrom
+                # low_scores = 0
+                
+                
+                
 
 
             # if chrom != first_chrom:
@@ -51,7 +67,7 @@ def call_peaks(z_scores_file, peaks_bed, start=1):
             #     o.write(f"fixedStep chrom={chrom} start={start} step=1\n")
             # o.write(tmp[-1]+"\n")
     f.close()
-    o.close()
+    # o.close()
 
 
 def create_wig(z_scores_file, wig_file, start=0):
@@ -74,7 +90,6 @@ def create_wig(z_scores_file, wig_file, start=0):
             o.write(tmp[-1]+"\n")
     f.close()
     o.close()
-
 
 
 def calculate_z_scores(wps_txt, sample_name, output_dir):
@@ -287,6 +302,8 @@ def windowed_protection_scores(sample_list, ann_dict, bin_dict, output_dir, regi
         wig_file = zscore_txt.replace(".tsv", ".wig")
         create_wig(zscore_txt, wig_file, start=r_pos)
 
+        peaks_bed = zscore_txt.replace(".tsv", ".peaks.bed")
+        call_peaks(zscore_txt, peaks_bed)
 
 
 def plot_z_scores(df, output_png):

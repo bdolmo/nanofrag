@@ -33,7 +33,7 @@ def get_chromosome_sizes(chrom_sizes):
             chrom_sizes_dict[chrom] = end
     return chrom_sizes_dict
 
-def get_binaries_configuration(main_dir)
+def set_binaries_configuration(main_dir):
     """ """
     bin_dict = {
         "wigToBigWig" : os.path.join(main_dir, "bin", "wigToBigWig"),
