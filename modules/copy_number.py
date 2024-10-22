@@ -13,6 +13,45 @@ import multiprocessing
 import math
 
 
+import subprocess
+
+def run_ichorcnv(input_dir, output_dir, bam_file, ref_file, gc_file, map_file, ploidy, threads):
+    command = [
+        "docker", "run", "-it",
+        "-v", f"{input_dir}:{input_dir}",
+        "-v", f"{output_dir}:{output_dir}",
+        "gavinhalab/ichorcna:1.0.0",
+        "Rscript", "/ichorCNA/runIchorCNA.R",
+        "--id", "sample_id",                       # replace with the sample ID
+        "--bam", f"{input_dir}/{bam_file}",        # input BAM file
+        "--ref", f"{input_dir}/{ref_file}",        # reference genome file
+        "--gcWig", f"{input_dir}/{gc_file}",       # GC content file
+        "--mapWig", f"{input_dir}/{map_file}",     # mappability file
+        "--ploidy", str(ploidy),                   # assumed ploidy level
+        "--threads", str(threads),                 # number of threads to use
+        "--outputDir", output_dir                  # output directory
+    ]
+    
+    try:
+        subprocess.run(command, check=True)
+        print("ichorCNV run successfully")
+    except subprocess.CalledProcessError as e:
+        print(f"Error running ichorCNV: {e}")
+
+    # Example usage
+    input_dir = "/path/to/input"
+    output_dir = "/path/to/output"
+    bam_file = "sample.bam"
+    ref_file = "hg19.fa"
+    gc_file = "gc_content.wig"
+    map_file = "mapability.wig"
+    ploidy = 2
+    threads = 4
+
+    run_ichorcnv(input_dir, output_dir, bam_file, ref_file, gc_file, map_file, ploidy, threads)
+
+
+
 
 def normalized_bed_to_dict(input_bed):
     """ """
@@ -121,7 +160,7 @@ def normalize_raw_depth(sample_name, input_bed, output_bed):
             normalized_depth = float(tmp[5])
             cn_status = "Diploid"
 
-            if normalized_depth < 0.85:
+            if normalized_depth < 0.9:
                 cn_status = "Loss"
 
             if normalized_depth > 1.1:
@@ -131,7 +170,6 @@ def normalize_raw_depth(sample_name, input_bed, output_bed):
             o.write(line+"\n")
     f.close()
     o.close()
-
 
 
 def plot_cn_profile_vs_baseline(sample_name, input_bed, output_png):
@@ -169,14 +207,13 @@ def plot_cn_profile_vs_baseline(sample_name, input_bed, output_png):
     plt.figure(figsize=(20, 5))
     ax = sns.scatterplot( x=df.index, y=df["log2_ratio"], s=4, hue=df["cn_status"], palette=cn_status_colors)
 
-    # ax.set_xticklabels(unique_chromosomes, rotation=45)
     ax.set_xticks(ticks, unique_chromosomes, rotation=45)
 
 
     # Set titles and labels
     plt.title(f"CNA profile for sample {sample_name}", fontsize=16, weight='bold')
-    plt.ylabel("Normalized counts", fontsize=14)
-    plt.ylim(-3.2, 3)
+    plt.ylabel("Log2 Ratio", fontsize=14)
+    plt.ylim(-1,1.5)
     # plt.figure(figsize=(20, 4))
 
     for chrom in chr_limits:
@@ -187,7 +224,6 @@ def plot_cn_profile_vs_baseline(sample_name, input_bed, output_png):
     # Save the plot
     plt.savefig(output_png)
     plt.close()
-
 
 
 def plot_cn_profile_intrasample(sample_name, input_bed, output_png):
@@ -225,13 +261,13 @@ def plot_cn_profile_intrasample(sample_name, input_bed, output_png):
         "Gain": "green"
     }
 
-
     df["short_fragments"] = np.log2(df["short_fragments"])
     sdata = df["short_fragments"].dropna()
-    print(sample_name, "variance intra:", sdata.var())
+    # print(sample_name, "variance intra:", sdata.var())
 
     plt.figure(figsize=(20, 5))
     ax = sns.scatterplot( x=df.index, y=df["short_fragments"], s=4, hue=df["cn_status"], palette=cn_status_colors)
+
 
     # ax.set_xticklabels(unique_chromosomes, rotation=45)
     ax.set_xticks(ticks, unique_chromosomes, rotation=45)
@@ -239,9 +275,8 @@ def plot_cn_profile_intrasample(sample_name, input_bed, output_png):
 
     # Set titles and labels
     plt.title(f"CNA profile for sample {sample_name}", fontsize=16, weight='bold')
-    plt.ylabel("Normalized counts", fontsize=14)
-    plt.ylim(-3.2, 3)
-    # plt.figure(figsize=(20, 4))
+    plt.ylabel("Log2 Ratio", fontsize=14)
+    plt.ylim(-1, 1.5)
 
     for chrom in chr_limits:
         plt.axvline(x=chr_limits[chrom], ymin=0, ymax=3, color="grey", linestyle="--")
@@ -267,7 +302,6 @@ def run_cn_workflow(sample_list, output_dir):
         sample.add("normalized_bed", normalized_bed)
         # normalize raw data
         normalize_raw_depth(sample.name, fragment_bed, normalized_bed)
-
 
     sample_list = calculate_log2_ratios(sample_list, output_dir)
 

@@ -3,8 +3,9 @@ import sys
 import argparse
 from modules.utils import get_bams_from_list, set_annotation_resources, set_binaries_configuration, set_sample_configuration
 from modules.fragmentomics import run_fragmentomic_analysis
-from modules.nucleosome import windowed_protection_scores
+from modules.nucleosome import run_wps_analysis, run_tss_analysis
 from modules.copy_number import run_cn_workflow
+from modules.small_variants import run_small_variant_detection
 
 main_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -25,6 +26,9 @@ def get_args():
         help="Skip windowed protection score calculation", action="store_true")
     parser.add_argument("--skip_cn", dest="skip_cn", 
         help="Skip copy number analysis", action="store_true")
+    parser.add_argument("--skip_small_variants", dest="skip_small_variants", 
+        help="Skip small variant analysis", action="store_true")
+        
 
     args = parser.parse_args()
     return args
@@ -42,6 +46,9 @@ if __name__ == "__main__":
     skip_fragmentation = args.skip_fragmentation
     skip_wps = args.skip_wps
     skip_cn = args.skip_cn
+    skip_small_variants = args.skip_small_variants
+
+
 
     tumor_bams = get_bams_from_list(tumor_list)
     normal_bams = get_bams_from_list(normal_list)
@@ -58,13 +65,24 @@ if __name__ == "__main__":
     
     if skip_cn == False:
         sample_list = run_cn_workflow(sample_list, output_dir)
-    sys.exit()
 
-    if skip_wps == False:
-        # windowed_protection_scores(sample_list, ann_dict, output_dir)
-        region = "chr12:34430233-34443233"
-        # region = ""
-        windowed_protection_scores(sample_list, ann_dict, bin_dict, output_dir, region)
+    if skip_small_variants == False:
+        run_small_variant_detection(sample_list, ann_dict, genome, output_dir, threads)
+
+    # if skip_wps == False:
+    #     # windowed_protection_scores(sample_list, ann_dict, output_dir)
+    #     # region = "chr12:34267065-34294065"
+    #     # region = ""
+
+    #     run_tss_analysis(sample_list, ann_dict, output_dir)
+    #     # run_nucleosome_profiling(sample_list, ann_dict, output_dir)
+    #     # run_wps_analysis(sample_list, ann_dict, bin_dict, output_dir)
+
+
+
+
+
+    sys.exit()
 
 
     

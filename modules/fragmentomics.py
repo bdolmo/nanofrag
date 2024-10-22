@@ -8,10 +8,8 @@ import bisect
 from sklearn.cluster import KMeans
 import numpy as np
 import re
-
+from scipy.signal import savgol_filter
 import multiprocessing
-
-
 
 
 # Define your function to process a single chromosome
@@ -43,7 +41,6 @@ def create_windows(ann_dict, window_size, windows_bed):
     windows_tmp = windows_bed.replace(".bed", ".tmp.bed")
 
     cmd = f'bedtools makewindows -g {ann_dict["chromosomes"]} -w {min_window} | bedtools intersect -a stdin -b {ann_dict["blacklist"]} -v > {windows_bed}'
-    print(cmd)
     subprocess.run(cmd, shell=True, check=True)
 
     # cmd = f'bedtools makewindows -g {ann_dict["chromosomes"]} -w {window_size} > {windows_tmp}'
@@ -306,6 +303,8 @@ def run_fragmentomic_analysis(sample_list, ann_dict, genome, output_dir, num_cpu
                     fragment_size_ratio = chromdata[region]["fragment_size_ratio"]
                     o.write(f"{region[0]}\t{region[1]}\t{region[2]}\t{read_count}\t{ultra_short_fragments}\t{short_fragments}\t{long_fragments}\t{fragment_size_ratio}\n")
             o.close()
+        fragment_size_ratio_png = os.path.join(fragment_folder, f"{sample.name}.fsr.png")
+        plot_fragmentation_ratio(sample.name, fragment_bed, fragment_size_ratio_png)
 
 
     for sample in sample_list:
@@ -322,6 +321,58 @@ def run_fragmentomic_analysis(sample_list, ann_dict, genome, output_dir, num_cpu
 
     return sample_list
         
+
+def plot_fragmentation_ratio(sample_name, input_bed, output_png):
+    """ """
+
+    df = pd.read_csv(input_bed, sep="\t", header=0, names=["chr", "pos", "end", "read_count", 
+        "ultra_short_fragments", "short_fragments", "long_fragments", "fragment_size_ratio"])
+
+    df["fsr_zscore"] = ((df["fragment_size_ratio"]-df["fragment_size_ratio"].mean())/df["fragment_size_ratio"].std())
+    df["fsr_zscore"] = savgol_filter(df["fsr_zscore"], 15, 3)
+
+
+    chromosomes = df['chr'].tolist()
+    chr_colors = {}
+    chr_limits = {}
+    
+    idx = 0
+    chr_count = 0
+    unique_chromosomes = []
+    ticks = []
+    for chrom in chromosomes:
+        chr_count += 1
+        color = "#686868"
+        idx = 0
+        if not chrom in chr_colors:
+            chr_colors[chrom] =color
+            unique_chromosomes.append(chrom)
+        if not chrom in chr_limits:
+            chr_limits[chrom] = chr_count
+            ticks.append(chr_count)
+
+    plt.figure(figsize=(20, 5))
+    ax = sns.lineplot( x=df.index, y=df["fsr_zscore"])
+
+    # ax.set_xticklabels(unique_chromosomes, rotation=45)
+    ax.set_yticks([-1, 0, 1], ["-1", "0", "1"], fontsize=12)
+
+    ax.set_xticks(ticks, unique_chromosomes, rotation=45, fontsize=12)
+
+
+    # Set titles and labels
+    plt.title(f"Fragmentation ratio for sample {sample_name}", fontsize=16, weight='bold')
+    plt.ylabel("Frag Size Ratio (z-score)", fontsize=14)
+    plt.ylim(-1.2, 1.2)
+
+    for chrom in chr_limits:
+        plt.axvline(x=chr_limits[chrom], ymin=0, ymax=3, color="grey", linestyle="--")
+
+    plt.legend([],[], frameon=False)
+
+    # Save the plot
+    plt.savefig(output_png)
+    plt.close()
 
 
 def plot_fragment_distribution(sample_list, fragment_png):

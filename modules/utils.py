@@ -1,5 +1,26 @@
 import os
 import sys
+import gzip
+
+def bed_to_list(input_bed, gzipped=False):
+    """ """
+
+    regions_list = []
+
+    if gzipped:
+        with gzip.open(input_bed,'rt') as f:
+            for line in f:
+                line = line.rstrip("\n")
+                regions_list.append(line)
+        f.close()
+    else:
+        with open(input_bed) as f:
+            for line in f:
+                line = line.rstrip("\n")
+                regions_list.append(line)
+        f.close()
+    return regions_list
+
 
 
 class Sample:
@@ -36,6 +57,7 @@ def get_chromosome_sizes(chrom_sizes):
 def set_binaries_configuration(main_dir):
     """ """
     bin_dict = {
+        "modkit": os.path.join(main_dir, "bin", "modkit"),
         "wigToBigWig" : os.path.join(main_dir, "bin", "wigToBigWig"),
     }
     return bin_dict
@@ -66,7 +88,9 @@ def set_annotation_resources(main_dir):
     """ """
     ann_dict = {
         "blacklist" : os.path.join(main_dir, "annotations", "consensusBlacklist.hg38.bed"),
-        "chromosomes" : os.path.join(main_dir, "annotations", "hg38.chromosomes.txt")
+        "chromosomes" : os.path.join(main_dir, "annotations", "hg38.chromosomes.txt"),
+        "nucleosomes": os.path.join(main_dir, "annotations", "GSE71378_CH01.hg38.reduced.bed.gz"),
+        "tss": os.path.join(main_dir, "annotations", "refTSS_v4.1_human_coordinate.hg38.bed")
     }
     return ann_dict
 
