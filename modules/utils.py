@@ -90,7 +90,9 @@ def set_annotation_resources(main_dir):
         "blacklist" : os.path.join(main_dir, "annotations", "consensusBlacklist.hg38.bed"),
         "chromosomes" : os.path.join(main_dir, "annotations", "hg38.chromosomes.txt"),
         "nucleosomes": os.path.join(main_dir, "annotations", "GSE71378_CH01.hg38.reduced.bed.gz"),
-        "tss": os.path.join(main_dir, "annotations", "refTSS_v4.1_human_coordinate.hg38.bed")
+        "tss": os.path.join(main_dir, "annotations", "refTSS_v4.1_human_coordinate.hg38.bed"),
+        "somatic_variants": os.path.join(main_dir, "annotations", "somatic.variants.grhc38.bed"),
+        "cpg_islands": os.path.join(main_dir, "annotations", "cpg_islands_ucsc_cleaned.bed")
     }
     return ann_dict
 

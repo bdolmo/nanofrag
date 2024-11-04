@@ -6,6 +6,7 @@ from modules.fragmentomics import run_fragmentomic_analysis
 from modules.nucleosome import run_wps_analysis, run_tss_analysis
 from modules.copy_number import run_cn_workflow
 from modules.small_variants import run_small_variant_detection
+from modules.methylation import run_methylation_analysis
 
 main_dir = os.path.dirname(os.path.realpath(__file__))
 
@@ -27,8 +28,10 @@ def get_args():
     parser.add_argument("--skip_cn", dest="skip_cn", 
         help="Skip copy number analysis", action="store_true")
     parser.add_argument("--skip_small_variants", dest="skip_small_variants", 
-        help="Skip small variant analysis", action="store_true")
-        
+        help="Skip small variant analysis (SNV)", action="store_true")
+    parser.add_argument("--skip_methylation", dest="skip_methylation", 
+        help="Skip methylation anaylsis", action="store_true")
+
 
     args = parser.parse_args()
     return args
@@ -47,8 +50,7 @@ if __name__ == "__main__":
     skip_wps = args.skip_wps
     skip_cn = args.skip_cn
     skip_small_variants = args.skip_small_variants
-
-
+    skip_methylation = args.skip_methylation
 
     tumor_bams = get_bams_from_list(tumor_list)
     normal_bams = get_bams_from_list(normal_list)
@@ -59,6 +61,9 @@ if __name__ == "__main__":
 
     if not os.path.isdir(output_dir):
         os.mkdir(output_dir)
+
+    if skip_methylation == False:
+        sample_list = run_methylation_analysis(sample_list, ann_dict, bin_dict, threads, genome, output_dir)
 
     if skip_fragmentation == False:
         sample_list = run_fragmentomic_analysis(sample_list, ann_dict, genome, output_dir, threads, window_size=5000000)
@@ -77,8 +82,6 @@ if __name__ == "__main__":
     #     run_tss_analysis(sample_list, ann_dict, output_dir)
     #     # run_nucleosome_profiling(sample_list, ann_dict, output_dir)
     #     # run_wps_analysis(sample_list, ann_dict, bin_dict, output_dir)
-
-
 
 
 

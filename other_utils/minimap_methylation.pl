@@ -4,6 +4,7 @@ use strict;
 use warnings;
 use diagnostics;
 use Getopt::Long;
+use File::Basename;
 
 # Variables for options
 my ($input_dir, $reference, $threads, $output_dir);
@@ -36,6 +37,8 @@ if (!$output_dir) {
     help();
 }
 
+mkdir $output_dir;
+
 # Get samtools and minimap2 paths
 my $samtools = `which samtools`;
 chomp $samtools;
@@ -58,15 +61,54 @@ if (!@unaligned_bams) {
     exit;
 }
 
-my $bam_str = join(" ", @unaligned_bams);
+my $sample = basename($unaligned_bams[0]);
+my @tmpSample = split("_", $sample);
+my $sampleName = $tmpSample[0];
+
+# my $idx = 0;
+# foreach my $bam(@unaligned_bams) {
+#     my $cmd = "$samtools fastq -@ 4 -T MM,ML $bam  | gzip > $output_dir/$sampleName.$idx.fastq.gz";
+#     print $cmd . "\n";
+#     system $cmd;
+#     $idx++;
+# }
 
 
-################################################################################
-sub bam_to_fastq {
-    my $bam_str = shift;
+use Parallel::ForkManager;
+
+# Number of parallel processes you want to run (you can adjust this)
+my $max_processes = $threads; 
+
+# Initialize ForkManager with the desired number of processes
+my $pm = Parallel::ForkManager->new($max_processes);
+
+my $idx = 0;
+foreach my $bam (@unaligned_bams) {
+        $idx++;
+
+    # Start a new forked process
+    $pm->start and next;  # Fork a process and move to the next iteration
     
-    my $cmd = "$samtools fastq -T * $bam_str > $output_dir/";
+    my $cmd = "$samtools fastq -@ 4 -T MM,ML $bam  | gzip > $output_dir/$sampleName.$idx.fastq.gz";
+    print $cmd . "\n";
+    system $cmd;
+    $pm->finish;  # End the forked process
+    
 }
+
+# Wait for all child processes to complete
+$pm->wait_all_children;
+
+
+
+
+sub align_with_minimap2 {
+    my $fastq = shift;
+    my $bam = shift;
+
+    my $cmd = "$minimap2 -t $threads -y -ax map-ont $reference $fastq "
+}
+
 
 
 

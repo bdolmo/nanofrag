@@ -93,7 +93,7 @@ def calculate_log2_ratios(sample_list, output_dir):
 
         # print(tumor_sample.name)
 
-        normal_sample = normal_samples[1]
+        normal_sample = normal_samples[0]
 
         tumor_data = normalized_bed_to_dict(tumor_sample.normalized_bed)
         normal_data = normalized_bed_to_dict(normal_sample.normalized_bed)

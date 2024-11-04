@@ -264,7 +264,6 @@ def plot_fragment_histogram(input_file, output_png, analysis_type):
     # Save the plot
     plt.savefig(output_histogram)
 
-
     msg = f" INFO: Histogram of read sizes saved to {output_histogram}"
     print(msg)
 
@@ -420,8 +419,8 @@ def plot_fragment_distribution(sample_list, fragment_png):
     plt.xticks(fontsize=12)
     plt.yticks(fontsize=12)
     plt.xlim(0, 800)
-    for idx,mode in enumerate(mode_vals):
 
+    for idx,mode in enumerate(mode_vals):
         max_val = max_vals[idx]
         print(mode.iloc[0], max_val)
         plt.axvline(x=mode.iloc[0], ymin=0, ymax=max_val, color="white", linestyle="--")
@@ -429,7 +428,6 @@ def plot_fragment_distribution(sample_list, fragment_png):
 
     plt.tight_layout()
     plt.legend(title="Samples")
-
 
     # Save the plot
     plt.savefig(fragment_png)
