@@ -1,4 +1,5 @@
 import os
+import sys
 import subprocess
 import re
 from collections import defaultdict
@@ -7,50 +8,85 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
-from modules.utils import get_chromosome_sizes
+from modules.utils import get_chromosome_sizes, create_windows_bed_wig
 import gzip
 import multiprocessing
 import math
-
-
 import subprocess
 
-def run_ichorcnv(input_dir, output_dir, bam_file, ref_file, gc_file, map_file, ploidy, threads):
-    command = [
-        "docker", "run", "-it",
-        "-v", f"{input_dir}:{input_dir}",
-        "-v", f"{output_dir}:{output_dir}",
-        "gavinhalab/ichorcna:1.0.0",
-        "Rscript", "/ichorCNA/runIchorCNA.R",
-        "--id", "sample_id",                       # replace with the sample ID
-        "--bam", f"{input_dir}/{bam_file}",        # input BAM file
-        "--ref", f"{input_dir}/{ref_file}",        # reference genome file
-        "--gcWig", f"{input_dir}/{gc_file}",       # GC content file
-        "--mapWig", f"{input_dir}/{map_file}",     # mappability file
-        "--ploidy", str(ploidy),                   # assumed ploidy level
-        "--threads", str(threads),                 # number of threads to use
-        "--outputDir", output_dir                  # output directory
-    ]
+
+def run_ichorcna_docker(input_bam, output_dir, sample_id="tumor_sample"):
+    # Define paths within the container
+    wig_file_path = f"{output_dir}/{sample_id}.wig"
     
+    # Step 1: Run readCounter to generate .wig file
+    # readcounter_command = [
+    #     "docker", "run", "-it", "-v", f"{input_bam}:/data/tumor.bam",
+    #     "-v", f"{output_dir}:/output", "gavinhalab/ichorcna:1.0.0",
+    #     "readCounter", "--window", "1000000", "--quality", "20",
+    #     "--chromosome", "1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,X,Y",
+    #     "/data/tumor.bam", ">", "/output/tumor.wig"
+    # ]
+    print(input_bam)
+    bam_name = os.path.basename(input_bam)
+    readcounter_command = [
+        "docker", "run", "-it", "-v", f"{os.path.dirname(input_bam)}:/bam_dir",
+        "-v", f"{output_dir}:/output", "gavinhalab/ichorcna:1.0.0",
+        f' /bin/bash -c "readCounter --window 1000000 --quality 20 --chromosome chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY  /bam_dir/{bam_name}> /output/{sample_id}.wig"'
+    ]
+
+    if not os.path.isfile(wig_file_path):
+        try:
+            print("Running readCounter...")
+            subprocess.run(" ".join(readcounter_command), shell=True, check=True)
+            print(f"ReadCounter completed. Output saved to {wig_file_path}")
+        except subprocess.CalledProcessError as e:
+            print(f"Error in readCounter command: {e}")
+            return
+
+    # Step 2: Run ichorCNA with the generated .wig file
+    ichorcna_command = [
+        "docker", "run", "-it", "-v", f"{output_dir}:/output",
+        "seqeralabs/ichorcna", "runIchorCNA.R",
+        "--id", sample_id, "--WIG", f"/output/{sample_id}.wig", "--ploidy", "\"c(2,3)\"",
+        "--normal", "\"c(0.5,0.6,0.7,0.8,0.9)\"", "--maxCN", "5",
+        "--gcWig", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/gc_hg38_1000kb.wig",
+        "--mapWig", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/map_hg38_1000kb.wig",
+        "--centromere", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/GRCh38.GCA_000001405.2_centromere_acen.txt",
+        "--includeHOMD", "False", "--estimateNormal", "True",
+        "--estimatePloidy", "True", "--estimateScPrevalence", "True",
+        "--scStates", "\"c(1,3)\"", "--txnE", "0.9999", "--txnStrength", "10000",
+        "--outDir", "/output"
+    ]
+    print(" ".join(ichorcna_command))
+
+
+
+# docker run -it -v /home/minion/Desktop/test/CNA:/output seqeralabs/ichorcna runIchorCNA.R --id S188428 --WIG /output/tumor.wig --ploidy "c(2,3)" --normal "c(0.5,0.6,0.7,0.8,0.9)" --maxCN 5 --gcWig /opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/gc_hg38_1000kb.wig --mapWig /opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/map_hg38_1000kb.wig  --includeHOMD False  --estimateNormal True --estimatePloidy True --estimateScPrevalence True --scStates "c(1,3)" --txnE 0.9999 --txnStrength 10000 --outDir /output
+
+
+    # ichorcna_command = [
+    #     "docker", "run", "--rm", "-v", f"{output_dir}:/output",
+    #     "gavinhalab/ichorcna:1.0.0", "Rscript", "ichorCNA/R/runIchorCNA.R",
+    #     "--id", sample_id, "--WIG", "/output/tumor.wig", "--ploidy", "c(2,3)",
+    #     "--normal", "c(0.5,0.6,0.7,0.8,0.9)", "--maxCN", "5",
+    #     "--gcWig", "ichorCNA/inst/extdata/gc_hg19_1000kb.wig",
+    #     "--mapWig", "chorCNA/inst/extdata/map_hg19_1000kb.wig",
+    #     "--centromere", "ichorCNA/inst/extdata/GRCh37.p13_centromere_UCSC-gapTable.txt",
+    #     "--normalPanel", "ichorCNA/inst/extdata/HD_ULP_PoN_1Mb_median_normAutosome_mapScoreFiltered_median.rds",
+    #     "--includeHOMD", "False", "--chrs", "c(1:22, \"X\")",
+    #     "--chrTrain", "c(1:22)", "--estimateNormal", "True",
+    #     "--estimatePloidy", "True", "--estimateScPrevalence", "True",
+    #     "--scStates", "c(1,3)", "--txnE", "0.9999", "--txnStrength", "10000",
+    #     "--outDir", "/output"
+    # ]
     try:
-        subprocess.run(command, check=True)
-        print("ichorCNV run successfully")
+        print("Running ichorCNA analysis...")
+        # subprocess.run(ichorcna_command, check=True)
+        subprocess.run(" ".join(ichorcna_command), shell=True, check=True)
+        print(f"ichorCNA analysis completed. Results saved in {output_dir}")
     except subprocess.CalledProcessError as e:
-        print(f"Error running ichorCNV: {e}")
-
-    # Example usage
-    input_dir = "/path/to/input"
-    output_dir = "/path/to/output"
-    bam_file = "sample.bam"
-    ref_file = "hg19.fa"
-    gc_file = "gc_content.wig"
-    map_file = "mapability.wig"
-    ploidy = 2
-    threads = 4
-
-    run_ichorcnv(input_dir, output_dir, bam_file, ref_file, gc_file, map_file, ploidy, threads)
-
-
+        print(f"Error in ichorCNA command: {e}")
 
 
 def normalized_bed_to_dict(input_bed):
@@ -288,12 +324,18 @@ def plot_cn_profile_intrasample(sample_name, input_bed, output_png):
     plt.close()
 
 
-def run_cn_workflow(sample_list, output_dir):
+def run_cn_workflow(sample_list, ann_dict, output_dir):
     """ """
 
     cna_folder = os.path.join(output_dir, "CNA")
     if not os.path.isdir(cna_folder):
         os.mkdir(cna_folder)
+
+    windows_bed = os.path.join(output_dir, "windows.1000kb.bed")
+    windows_wig = os.path.join(output_dir, "windows.1000kb.wig")
+
+    # create_windows_bed_wig(chrom_sizes_file, window_size, output_wig_file, output_bed_file)
+    # create_windows_bed_wig(ann_dict["chromosomes"], 1000000, windows_wig, windows_bed)
 
     for sample in sample_list:
         fragment_bed = os.path.join(output_dir, "FRAGMENTATION",
@@ -316,5 +358,9 @@ def run_cn_workflow(sample_list, output_dir):
 
 
     #plot_cn_profile(sample.name, normalized_bed, cn_png)
-    
+    for sample in sample_list:
+        if sample.origin == "tumor":
+            run_ichorcna_docker(sample.bam, cna_folder, sample.name)
+
+
     return sample_list

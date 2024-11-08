@@ -5,6 +5,7 @@ use warnings;
 use diagnostics;
 use Getopt::Long;
 use File::Basename;
+use Parallel::ForkManager;
 
 # Variables for options
 my ($input_dir, $reference, $threads, $output_dir);
@@ -74,7 +75,6 @@ my $sampleName = $tmpSample[0];
 # }
 
 
-use Parallel::ForkManager;
 
 # Number of parallel processes you want to run (you can adjust this)
 my $max_processes = $threads; 
@@ -84,7 +84,7 @@ my $pm = Parallel::ForkManager->new($max_processes);
 
 my $idx = 0;
 foreach my $bam (@unaligned_bams) {
-        $idx++;
+    $idx++;
 
     # Start a new forked process
     $pm->start and next;  # Fork a process and move to the next iteration
@@ -93,19 +93,20 @@ foreach my $bam (@unaligned_bams) {
     print $cmd . "\n";
     system $cmd;
     $pm->finish;  # End the forked process
-    
 }
 
 # Wait for all child processes to complete
 $pm->wait_all_children;
 
 
-
+my $cmd = "cat $output_dir/*.fastq.gz > $output_dir/$sampleName.fastq.gz";
+if (!-e "$output_dir/$sampleName.fastq.gz") {
+    system $cmd;
+}
 
 sub align_with_minimap2 {
     my $fastq = shift;
     my $bam = shift;
-
     my $cmd = "$minimap2 -t $threads -y -ax map-ont $reference $fastq "
 }
 

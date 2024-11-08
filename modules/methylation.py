@@ -1,11 +1,6 @@
 import subprocess
 import os
 import sys
-
-
-import subprocess
-import os
-import sys
 import gzip
 import shutil
 
@@ -94,8 +89,6 @@ def run_modkit_dmr_pair(bin_dict, output_dir, norm_pileup, tumor_pileup, regions
 
 
 
-
-
 def run_modkit_pileup(bin_dict, reference_fasta, threads, input_bam, pileup_bed, ignore='h', combine_strands=True):
     """
     Run the modkit pileup command with specified options.
@@ -146,7 +139,8 @@ def run_methylation_analysis(sample_list, ann_dict, bin_dict, threads, reference
         t_pileup = tumor_sample.methylation_pileup
         n_pileup = normal_sample.methylation_pileup
 
-        run_modkit_dmr_pair(bin_dict,methylation_folder, n_pileup, t_pileup, ann_dict["cpg_islands"], reference_fasta, log_filepath=f"{methylation_folder}/dmr.log")
+        run_modkit_dmr_pair(bin_dict,methylation_folder, n_pileup, t_pileup, ann_dict["cpg_islands"], 
+            reference_fasta, log_filepath=f"{methylation_folder}/dmr.log")
 
 
     return sample_list

@@ -6,6 +6,8 @@ import pandas as pd
 import subprocess
 import bisect
 from sklearn.cluster import KMeans
+from sklearn.mixture import GaussianMixture
+from modules.utils import create_windows_bed_wig
 import numpy as np
 import re
 from scipy.signal import savgol_filter
@@ -33,7 +35,6 @@ def create_windows(ann_dict, window_size, windows_bed):
     """
     Create windows of given size across the genome using bedtools.
     """
-
 
     min_window = 1000000
 
@@ -268,7 +269,42 @@ def plot_fragment_histogram(input_file, output_png, analysis_type):
     print(msg)
 
 
-def run_fragmentomic_analysis(sample_list, ann_dict, genome, output_dir, num_cpus, window_size=5000000):
+def calculate_fragment_counts(sample, fragment_folder, windows_bed, cxx_binary_path):
+
+    fragment_bed = os.path.join(fragment_folder, f"{sample.name}.fragmentation.data.bed")
+    fragment_wig = os.path.join(fragment_folder, f"{sample.name}.fragmentation.wig")
+    sample.add("fragment_data", fragment_bed)
+    sample.add("fragment_wig", fragment_wig)
+
+
+    # Check if the output file already exists; if not, run the C++ binary
+    # if not os.path.isfile(fragment_bed):
+    # Run the C++ binary to generate fragment counts
+    # The binary expects: <BAM file> <BED file> <output file>
+    bam_file = sample.bam  # Assuming you have a method to get the BAM file for each sample
+    command = [cxx_binary_path, bam_file, windows_bed, fragment_bed, fragment_wig]
+    print(' '.join(command))
+    # Execute the C++ binary
+    subprocess.run(command, check=True)
+
+
+def process_sample(sample, fragment_folder, windows_bed, cfdna_counter_path):
+    # Define the output file for the current sample
+    fragment_bed = os.path.join(fragment_folder, f"{sample.name}.fragmentation.data.bed")
+    fragment_wig = os.path.join(fragment_folder, f"{sample.name}.fragmentation.wig")
+    sample.add("fragment_data", fragment_bed)
+    sample.add("fragment_wig", fragment_wig)
+
+    # Call the function to calculate fragment counts (this runs the C++ binary)
+    calculate_fragment_counts(sample, fragment_folder, windows_bed, cfdna_counter_path)
+
+    # Generate the output PNG for the fragment size ratio plot
+    fragment_size_ratio_png = os.path.join(fragment_folder, f"{sample.name}.fsr.png")
+    plot_fragmentation_ratio(sample.name, fragment_bed, fragment_size_ratio_png)
+
+
+
+def run_fragmentomic_analysis(sample_list, ann_dict, bin_dict, genome, output_dir, num_cpus, window_size=5000000):
     """ """
 
     fragment_folder = os.path.join(output_dir, "FRAGMENTATION")
@@ -276,34 +312,57 @@ def run_fragmentomic_analysis(sample_list, ann_dict, genome, output_dir, num_cpu
         os.mkdir(fragment_folder)
 
 
-    # Frament Size Ratio (FSR)
-    windows_bed = os.path.join(fragment_folder, f"windows_{window_size}.bed")
-    if not os.path.isfile(windows_bed):
-        create_windows(ann_dict, window_size, windows_bed)
+    windows_bed = os.path.join(output_dir, "windows.1000kb.bed")
+    windows_wig = os.path.join(output_dir, "windows.1000kb.wig")
+
+    create_windows_bed_wig(ann_dict["chromosomes"], 1000000, windows_wig, windows_bed)
 
     chromosomes = [(f"chr{i}") for i in range(1, 23)]
-
-    for sample in sample_list:
-        fragment_bed = os.path.join(fragment_folder, f"{sample.name}.fragmentation.data.bed")
-        sample.add("fragment_data", fragment_bed)
-        if not os.path.isfile(fragment_bed):
-            o = open(fragment_bed, "a")
-            o.write("chr\tpos\tend\tread_count\tultra_short_fragments\tshort_fragments\tlong_fragments\tfragment_size_ratio\n")
-            results = parallel_process_fragments(sample, windows_bed, chromosomes, num_cpus)
-
-            for chromdata in results:
-                for region in chromdata:
-                    read_count = chromdata[region]["read_count"]
-                    ultra_short_fragments = chromdata[region]["ultra_short_fragments"]
+    chromosomes.append("chrX")
+    chromosomes.append("chrY")
 
 
-                    short_fragments = chromdata[region]["short_fragments"]
-                    long_fragments = chromdata[region]["long_fragments"]
-                    fragment_size_ratio = chromdata[region]["fragment_size_ratio"]
-                    o.write(f"{region[0]}\t{region[1]}\t{region[2]}\t{read_count}\t{ultra_short_fragments}\t{short_fragments}\t{long_fragments}\t{fragment_size_ratio}\n")
-            o.close()
-        fragment_size_ratio_png = os.path.join(fragment_folder, f"{sample.name}.fsr.png")
-        plot_fragmentation_ratio(sample.name, fragment_bed, fragment_size_ratio_png)
+    # Create a list of arguments for each sample
+    args = [(sample, fragment_folder, windows_bed, bin_dict["cfdna_counter"]) for sample in sample_list]
+
+    # Use a multiprocessing Pool to process each sample in parallel
+    with multiprocessing.Pool(processes=num_cpus) as pool:
+        pool.starmap(process_sample, args)
+
+
+    # for sample in sample_list:
+
+    #     fragment_bed = os.path.join(fragment_folder, f"{sample.name}.fragmentation.data.bed")
+    #     sample.add("fragment_data", fragment_bed)
+
+    #     calculate_fragment_counts(sample, fragment_folder, windows_bed, bin_dict["cfdna_counter"])
+
+    #     # if not os.path.isfile(fragment_bed):
+    #     #     o = open(fragment_bed, "a")
+    #     #     o.write("chr\tpos\tend\tread_count\tultra_short_fragments\tshort_fragments\tlong_fragments\tfragment_size_ratio\n")
+    #     #     results = parallel_process_fragments(sample, windows_bed, chromosomes, num_cpus)
+
+    #     #     for chromdata in results:
+    #     #         for region in chromdata:
+    #     #             read_count = chromdata[region]["read_count"]
+    #     #             ultra_short_fragments = chromdata[region]["ultra_short_fragments"]
+    #     #             short_fragments = chromdata[region]["short_fragments"]
+    #     #             long_fragments = chromdata[region]["long_fragments"]
+    #     #             fragment_size_ratio = chromdata[region]["fragment_size_ratio"]
+    #     #             o.write(f"{region[0]}\t{region[1]}\t{region[2]}\t{read_count}\t{ultra_short_fragments}\t{short_fragments}\t{long_fragments}\t{fragment_size_ratio}\n")
+    #     #     o.close()
+
+    #     #     with open(fragment_bed) as f:
+    #     #         for line in f:
+    #     #             line = line.rstrip("\n")
+    #     #             if line.startswith("chr\tpos"):
+    #     #                 continue
+                        
+    #     #     f.close()
+
+
+    #     fragment_size_ratio_png = os.path.join(fragment_folder, f"{sample.name}.fsr.png")
+    #     plot_fragmentation_ratio(sample.name, fragment_bed, fragment_size_ratio_png)
 
 
     for sample in sample_list:
@@ -314,7 +373,7 @@ def run_fragmentomic_analysis(sample_list, ann_dict, genome, output_dir, num_cpu
         if not os.path.isfile(fragment_sizes_txt):
             get_read_size_histogram(sample.bam, fragment_sizes_txt)
 
-    fragment_png = os.path.join(fragment_folder, "framgmentation.histogram.png")
+    fragment_png = os.path.join(fragment_folder, "fragmentation.histogram.png")
     if not os.path.isfile(fragment_png):
         plot_fragment_distribution(sample_list, fragment_png)
 
@@ -329,7 +388,6 @@ def plot_fragmentation_ratio(sample_name, input_bed, output_png):
 
     df["fsr_zscore"] = ((df["fragment_size_ratio"]-df["fragment_size_ratio"].mean())/df["fragment_size_ratio"].std())
     df["fsr_zscore"] = savgol_filter(df["fsr_zscore"], 15, 3)
-
 
     chromosomes = df['chr'].tolist()
     chr_colors = {}
@@ -354,7 +412,7 @@ def plot_fragmentation_ratio(sample_name, input_bed, output_png):
     ax = sns.lineplot( x=df.index, y=df["fsr_zscore"])
 
     # ax.set_xticklabels(unique_chromosomes, rotation=45)
-    ax.set_yticks([-1, 0, 1], ["-1", "0", "1"], fontsize=12)
+    ax.set_yticks([-3, 0, 3], ["-3", "0", "3"], fontsize=12)
 
     ax.set_xticks(ticks, unique_chromosomes, rotation=45, fontsize=12)
 
@@ -362,7 +420,7 @@ def plot_fragmentation_ratio(sample_name, input_bed, output_png):
     # Set titles and labels
     plt.title(f"Fragmentation ratio for sample {sample_name}", fontsize=16, weight='bold')
     plt.ylabel("Frag Size Ratio (z-score)", fontsize=14)
-    plt.ylim(-1.2, 1.2)
+    plt.ylim(-3.2, 3.2)
 
     for chrom in chr_limits:
         plt.axvline(x=chr_limits[chrom], ymin=0, ymax=3, color="grey", linestyle="--")
@@ -386,34 +444,99 @@ def plot_fragment_distribution(sample_list, fragment_png):
 
     plt.figure(figsize=(10, 6))
 
-    colors = ["red", "darkred", "blue", "darkblue"]
+    red_palette = [
+        "#D10000",
+        "#FF0000",  # Pure red
+        "#FF3333",
+        "#FF6666",
+        "#FF9999",
+        "#FFCCCC",
+        "#FFE5E5"   # Lightest red
+    ]
+
+    blue_palette = [
+        "#0000CC",
+        "#0000FF",  # Pure blue
+        "#3333FF",
+        "#6666FF",
+        "#9999FF",
+        "#CCCCFF",
+        "#E5E5FF"   # Lightest blue
+    ]
+
+    colors = []
+    idx = 0
+    jdx = 0
+    for sample in sample_list:
+        if sample.origin == "tumor":
+            colors.append(red_palette[idx])
+            idx+=1
+        else:
+            colors.append(blue_palette[jdx])
+            jdx+=1
+
+    # colors = ["red", "darkred", "blue", "darkblue"]
     idx = 0
     mode_vals = []
     max_val = 0
     max_vals = []
+
+    means_list = []
+    covariances_list = []
+    weights_list = []
+
+    interval_stats = []
+
+    # Define the intervals
+    intervals = [(50, 220), (220, 400), (400, 800)]
+
     for col in result.columns:
         if col == "":
             continue
         mode_val = result[col].mode()
         mode_vals.append(mode_val)
-        # print(col)
         max_val = max(result[col])
         max_vals.append(max_val)
-        # print(max_val)
 
         color = colors[idx]
-        # kmeans_input = np.array(result[col].values.tolist())
-        # kmeans_input = np.reshape(kmeans_input, (-1, 2))
-        # kmeans = KMeans(n_clusters=3).fit(kmeans_input)
-        # print(kmeans.cluster_centers_)
-        # sys.exit()
-        # sns.distplot(result[col], kde = True, color=color)
-
-        sns.histplot(result[col], bins=8000, label=col, kde=False, color=color, alpha=0.5)
+        col_interval_stats = {}
+        for interval in intervals:
+            lower, upper = interval
+            interval_data = result[col][(result[col] >= lower) & (result[col] < upper)].dropna()
+            interval_median = interval_data.median()
+            interval_mean = interval_data.mean()
+            interval_std = interval_data.std()
+            interval_mode = interval_data.mode().iloc[0]
+            col_interval_stats[f"{lower}-{upper}"] = {
+                'sample': col,
+                'mean': interval_mean, 
+                'std': interval_std, 
+                'median': interval_median, 
+                'mode': interval_mode,
+            }
+        interval_stats.append(col_interval_stats)
+        sns.histplot(result[col], bins=8000, label=col, kde=False, color=color)
         idx+=1
 
-    # # Set titles and labels
-    plt.title("cfDNA fragmentation", fontsize=16, weight='bold')
+    summary_name = os.path.join(os.path.dirname(fragment_png), "fragmentation.summary.csv")
+    o = open(summary_name, "w")
+    o.write("Name\tInterval\tMode\tMedian\tMean\tStd\n")
+
+    print(" INFO: Fragment interval stats:")
+    for stats in interval_stats:
+        for interval in intervals:
+            interval_str = str(interval).replace(", ", "-").replace("(", "").replace(")", "")
+            print(f"\t({interval_str} bp) ",
+                f"mode: {stats[interval_str]['mode']}",
+                f"median: {stats[interval_str]['median']}", 
+                f"mean: {stats[interval_str]['mean']}",
+                f"std: {stats[interval_str]['std']}")
+
+            out_str = f"{stats[interval_str]['sample']}\t{interval_str}\t{stats[interval_str]['mode']}\t{stats[interval_str]['median']}\t{stats[interval_str]['mean']}\t{stats[interval_str]['std']}"
+            o.write(out_str+"\n")
+    o.close()
+            
+    plt.title("cfDNA fragment distribution", fontsize=16, weight='bold')
     plt.xlabel("Fragment Size (bp)", fontsize=14)
     plt.ylabel("Frequency", fontsize=14)
     plt.xticks(fontsize=12)
@@ -422,7 +545,7 @@ def plot_fragment_distribution(sample_list, fragment_png):
 
     for idx,mode in enumerate(mode_vals):
         max_val = max_vals[idx]
-        print(mode.iloc[0], max_val)
+        # print(mode.iloc[0], max_val)
         plt.axvline(x=mode.iloc[0], ymin=0, ymax=max_val, color="white", linestyle="--")
         # plt.text(mode.iloc[0]+2, max_val+2, mode.iloc[0], rotation=60, va='center')
 

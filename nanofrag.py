@@ -32,7 +32,6 @@ def get_args():
     parser.add_argument("--skip_methylation", dest="skip_methylation", 
         help="Skip methylation anaylsis", action="store_true")
 
-
     args = parser.parse_args()
     return args
 
@@ -66,10 +65,10 @@ if __name__ == "__main__":
         sample_list = run_methylation_analysis(sample_list, ann_dict, bin_dict, threads, genome, output_dir)
 
     if skip_fragmentation == False:
-        sample_list = run_fragmentomic_analysis(sample_list, ann_dict, genome, output_dir, threads, window_size=5000000)
+        sample_list = run_fragmentomic_analysis(sample_list, ann_dict, bin_dict, genome, output_dir, threads, window_size=5000000)
     
     if skip_cn == False:
-        sample_list = run_cn_workflow(sample_list, output_dir)
+        sample_list = run_cn_workflow(sample_list, ann_dict, output_dir)
 
     if skip_small_variants == False:
         run_small_variant_detection(sample_list, ann_dict, genome, output_dir, threads)

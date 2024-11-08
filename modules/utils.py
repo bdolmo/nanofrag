@@ -54,11 +54,43 @@ def get_chromosome_sizes(chrom_sizes):
             chrom_sizes_dict[chrom] = end
     return chrom_sizes_dict
 
+
+def create_windows_bed_wig(chrom_sizes_file, window_size, output_wig_file, output_bed_file):
+    # Open the chromosome sizes file, WIG file, and BED file
+    with open(chrom_sizes_file, 'r') as f, open(output_wig_file, 'w') as wig, open(output_bed_file, 'w') as bed:
+        # Iterate over each chromosome in the chromosome sizes file
+        for line in f:
+            refName, refLength = line.strip().split()
+            if "M" in refName:
+                continue
+            refLength = int(refLength)
+            
+            # Adjust window size if it's greater than the chromosome length
+            window = min(window_size, refLength)
+            
+            # Write WIG header for each chromosome
+            wig.write(f"fixedStep chrom={refName} start=1 step={window} span={window}\n")
+            
+            # Initialize start and end positions for the first window
+            start = 0
+            while start < refLength:
+                # Calculate end of the current window
+                end = min(start + window, refLength)
+                
+                # Write BED entry (0-based) and WIG value (use 0 as placeholder for now)
+                bed.write(f"{refName}\t{start}\t{end}\n")
+                wig.write("0\n")  # Replace with actual data if available
+                
+                # Move to the next window
+                start += window
+
+
 def set_binaries_configuration(main_dir):
     """ """
     bin_dict = {
         "modkit": os.path.join(main_dir, "bin", "modkit"),
         "wigToBigWig" : os.path.join(main_dir, "bin", "wigToBigWig"),
+        "cfdna_counter": os.path.join(main_dir, "bin", "cfDNA_counts", "src", "cfdna_counter"),
     }
     return bin_dict
 
