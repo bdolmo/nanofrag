@@ -1251,3 +1251,143 @@ with_external_htscodecs='no'
 #define HAVE_LIBDEFLATE 1
 
 configure: exit 0
+
+## ---------------- ##
+## Cache variables. ##
+## ---------------- ##
+
+ac_cv_c_compiler_gnu=yes
+ac_cv_c_undeclared_builtin_options='none needed'
+ac_cv_env_CC_set=
+ac_cv_env_CC_value=
+ac_cv_env_CFLAGS_set=
+ac_cv_env_CFLAGS_value=
+ac_cv_env_CPPFLAGS_set=
+ac_cv_env_CPPFLAGS_value=
+ac_cv_env_LDFLAGS_set=
+ac_cv_env_LDFLAGS_value=
+ac_cv_env_LIBS_set=
+ac_cv_env_LIBS_value=
+ac_cv_env_PKG_CONFIG_LIBDIR_set=
+ac_cv_env_PKG_CONFIG_LIBDIR_value=
+ac_cv_env_PKG_CONFIG_PATH_set=
+ac_cv_env_PKG_CONFIG_PATH_value=
+ac_cv_env_PKG_CONFIG_set=
+ac_cv_env_PKG_CONFIG_value=
+ac_cv_env_build_alias_set=
+ac_cv_env_build_alias_value=
+ac_cv_env_host_alias_set=
+ac_cv_env_host_alias_value=
+ac_cv_env_target_alias_set=
+ac_cv_env_target_alias_value=
+ac_cv_have_decl__XOPEN_SOURCE=no
+ac_cv_have_decl___cpuid_count=yes
+ac_cv_have_decl___get_cpuid_max=yes
+ac_cv_header_inttypes_h=yes
+ac_cv_header_stdint_h=yes
+ac_cv_header_stdio_h=yes
+ac_cv_header_stdlib_h=yes
+ac_cv_header_string_h=yes
+ac_cv_header_strings_h=yes
+ac_cv_header_sys_param_h=yes
+ac_cv_header_sys_stat_h=yes
+ac_cv_header_sys_types_h=yes
+ac_cv_header_unistd_h=yes
+ac_cv_objext=o
+ac_cv_path_GREP=/usr/bin/grep
+ac_cv_prog_ac_ct_CC=gcc
+ac_cv_prog_ac_ct_RANLIB=ranlib
+ac_cv_prog_cc_c11=
+ac_cv_prog_cc_g=yes
+ac_cv_prog_cc_stdc=
+hts_cv_check_cflags_needed_avx2___mavx2__mpopcnt='-mavx2 -mpopcnt'
+hts_cv_check_cflags_needed_sse4_1___msse4_1__mssse3__mpopcnt='-msse4.1 -mssse3 -mpopcnt'
+hts_cv_prog_cc_warnings=-Wall
+
+## ----------------- ##
+## Output variables. ##
+## ----------------- ##
+
+CC='gcc'
+CFLAGS=' -Wall -g -O2'
+CPPFLAGS=''
+CRYPTO_LIBS=''
+DEFS=''
+ECHO_C=''
+ECHO_N='-n'
+ECHO_T=''
+EXEEXT=''
+GREP='/usr/bin/grep'
+HTSDIRslash_if_relsrcdir=''
+LDFLAGS=''
+LIBOBJS=''
+LIBS=''
+LTLIBOBJS=''
+OBJEXT='o'
+PACKAGE_BUGREPORT='samtools-help@lists.sourceforge.net'
+PACKAGE_NAME='HTSlib'
+PACKAGE_STRING='HTSlib 1.21'
+PACKAGE_TARNAME='htslib'
+PACKAGE_URL='http://www.htslib.org/'
+PACKAGE_VERSION='1.21'
+PATH_SEPARATOR=':'
+PKG_CONFIG=''
+PKG_CONFIG_LIBDIR=''
+PKG_CONFIG_PATH=''
+PLATFORM=''
+PLUGIN_EXT=''
+RANLIB='ranlib'
+SHELL='/bin/bash'
+VERSION_SCRIPT_LDFLAGS=''
+ac_ct_CC='gcc'
+bindir='${exec_prefix}/bin'
+build=''
+build_alias=''
+build_cpu=''
+build_os=''
+build_vendor=''
+datadir='${datarootdir}'
+datarootdir='${prefix}/share'
+docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
+dvidir='${docdir}'
+enable_plugins=''
+exec_prefix='NONE'
+gcs=''
+host=''
+host_alias=''
+host_cpu=''
+host_os=''
+host_vendor=''
+htmldir='${docdir}'
+hts_cflags_avx2='-mavx2 -mpopcnt'
+hts_cflags_avx512=''
+hts_cflags_sse4='-msse4.1 -mssse3 -mpopcnt'
+includedir='${prefix}/include'
+infodir='${datarootdir}/info'
+libcurl=''
+libdir='${exec_prefix}/lib'
+libexecdir='${exec_prefix}/libexec'
+localedir='${datarootdir}/locale'
+localstatedir='${prefix}/var'
+mandir='${datarootdir}/man'
+oldincludedir='/usr/include'
+pc_requires=''
+pdfdir='${docdir}'
+plugindir=''
+pluginpath=''
+prefix='NONE'
+private_LIBS=''
+program_transform_name='s,x,x,'
+psdir='${docdir}'
+runstatedir='${localstatedir}/run'
+s3=''
+sbindir='${exec_prefix}/sbin'
+sharedstatedir='${prefix}/com'
+static_LDFLAGS=''
+static_LIBS=''
+sysconfdir='${prefix}/etc'
+target_alias=''
+with_external_htscodecs=''
+
+configure: caught signal 1
+configure: exit 1

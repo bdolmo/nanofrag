@@ -13,11 +13,13 @@ import gzip
 import multiprocessing
 import math
 import subprocess
+import rdata
 
 
-def run_ichorcna_docker(input_bam, output_dir, sample_id="tumor_sample"):
+
+def run_ichorcna_docker(input_bam, output_dir, wig_file_path, sample_id="tumor_sample"):
     # Define paths within the container
-    wig_file_path = f"{output_dir}/{sample_id}.wig"
+    # wig_file_path = f"{output_dir}/{sample_id}.wig"
     
     # Step 1: Run readCounter to generate .wig file
     # readcounter_command = [
@@ -29,64 +31,54 @@ def run_ichorcna_docker(input_bam, output_dir, sample_id="tumor_sample"):
     # ]
     print(input_bam)
     bam_name = os.path.basename(input_bam)
-    readcounter_command = [
-        "docker", "run", "-it", "-v", f"{os.path.dirname(input_bam)}:/bam_dir",
-        "-v", f"{output_dir}:/output", "gavinhalab/ichorcna:1.0.0",
-        f' /bin/bash -c "readCounter --window 1000000 --quality 20 --chromosome chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY  /bam_dir/{bam_name}> /output/{sample_id}.wig"'
-    ]
-
-    if not os.path.isfile(wig_file_path):
-        try:
-            print("Running readCounter...")
-            subprocess.run(" ".join(readcounter_command), shell=True, check=True)
-            print(f"ReadCounter completed. Output saved to {wig_file_path}")
-        except subprocess.CalledProcessError as e:
-            print(f"Error in readCounter command: {e}")
-            return
-
-    # Step 2: Run ichorCNA with the generated .wig file
-    ichorcna_command = [
-        "docker", "run", "-it", "-v", f"{output_dir}:/output",
-        "seqeralabs/ichorcna", "runIchorCNA.R",
-        "--id", sample_id, "--WIG", f"/output/{sample_id}.wig", "--ploidy", "\"c(2,3)\"",
-        "--normal", "\"c(0.5,0.6,0.7,0.8,0.9)\"", "--maxCN", "5",
-        "--gcWig", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/gc_hg38_1000kb.wig",
-        "--mapWig", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/map_hg38_1000kb.wig",
-        "--centromere", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/GRCh38.GCA_000001405.2_centromere_acen.txt",
-        "--includeHOMD", "False", "--estimateNormal", "True",
-        "--estimatePloidy", "True", "--estimateScPrevalence", "True",
-        "--scStates", "\"c(1,3)\"", "--txnE", "0.9999", "--txnStrength", "10000",
-        "--outDir", "/output"
-    ]
-    print(" ".join(ichorcna_command))
-
-
-
-# docker run -it -v /home/minion/Desktop/test/CNA:/output seqeralabs/ichorcna runIchorCNA.R --id S188428 --WIG /output/tumor.wig --ploidy "c(2,3)" --normal "c(0.5,0.6,0.7,0.8,0.9)" --maxCN 5 --gcWig /opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/gc_hg38_1000kb.wig --mapWig /opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/map_hg38_1000kb.wig  --includeHOMD False  --estimateNormal True --estimatePloidy True --estimateScPrevalence True --scStates "c(1,3)" --txnE 0.9999 --txnStrength 10000 --outDir /output
-
-
-    # ichorcna_command = [
-    #     "docker", "run", "--rm", "-v", f"{output_dir}:/output",
-    #     "gavinhalab/ichorcna:1.0.0", "Rscript", "ichorCNA/R/runIchorCNA.R",
-    #     "--id", sample_id, "--WIG", "/output/tumor.wig", "--ploidy", "c(2,3)",
-    #     "--normal", "c(0.5,0.6,0.7,0.8,0.9)", "--maxCN", "5",
-    #     "--gcWig", "ichorCNA/inst/extdata/gc_hg19_1000kb.wig",
-    #     "--mapWig", "chorCNA/inst/extdata/map_hg19_1000kb.wig",
-    #     "--centromere", "ichorCNA/inst/extdata/GRCh37.p13_centromere_UCSC-gapTable.txt",
-    #     "--normalPanel", "ichorCNA/inst/extdata/HD_ULP_PoN_1Mb_median_normAutosome_mapScoreFiltered_median.rds",
-    #     "--includeHOMD", "False", "--chrs", "c(1:22, \"X\")",
-    #     "--chrTrain", "c(1:22)", "--estimateNormal", "True",
-    #     "--estimatePloidy", "True", "--estimateScPrevalence", "True",
-    #     "--scStates", "c(1,3)", "--txnE", "0.9999", "--txnStrength", "10000",
-    #     "--outDir", "/output"
+    fragment_folder = os.path.dirname(wig_file_path)
+    # readcounter_command = [
+    #     "docker", "run", "-it", "-v", f"{os.path.dirname(input_bam)}:/bam_dir",
+    #     "-v", f"{output_dir}:/output", "gavinhalab/ichorcna:1.0.0",
+    #     f' /bin/bash -c "readCounter --window 1000000 --quality 20 --chromosome chr1,chr2,chr3,chr4,chr5,chr6,chr7,chr8,chr9,chr10,chr11,chr12,chr13,chr14,chr15,chr16,chr17,chr18,chr19,chr20,chr21,chr22,chrX,chrY  /bam_dir/{bam_name}> /output/{sample_id}.wig"'
     # ]
-    try:
-        print("Running ichorCNA analysis...")
-        # subprocess.run(ichorcna_command, check=True)
-        subprocess.run(" ".join(ichorcna_command), shell=True, check=True)
-        print(f"ichorCNA analysis completed. Results saved in {output_dir}")
-    except subprocess.CalledProcessError as e:
-        print(f"Error in ichorCNA command: {e}")
+
+    # if not os.path.isfile(wig_file_path):
+    #     try:
+    #         print("Running readCounter...")
+    #         subprocess.run(" ".join(readcounter_command), shell=True, check=True)
+    #         print(f"ReadCounter completed. Output saved to {wig_file_path}")
+    #     except subprocess.CalledProcessError as e:
+    #         print(f"Error in readCounter command: {e}")
+    #         return
+    wig_name = os.path.basename(wig_file_path)
+
+
+    seg_file = os.path.join(output_dir, f"{sample_id}.seg.txt")
+    if not os.path.isfile(seg_file):
+        # Step 2: Run ichorCNA with the generated .wig file
+        ichorcna_command = [
+            "docker", "run", "-it", "-v", f"{output_dir}:/output", "-v", f"{fragment_folder}:/fragment_folder",
+            "seqeralabs/ichorcna", "runIchorCNA.R",
+            "--id", sample_id, "--WIG", f"/fragment_folder/{wig_name}", "--ploidy", "\"c(2,3)\"",
+            "--normal", "\"c(0.5,0.6,0.7,0.8,0.9)\"", "--maxCN", "5",
+            "--gcWig", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/gc_hg38_1000kb.wig",
+            "--mapWig", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/map_hg38_1000kb.wig",
+            "--centromere", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/GRCh38.GCA_000001405.2_centromere_acen.txt",
+            "--includeHOMD", "False", "--estimateNormal", "True",
+            "--estimatePloidy", "True", "--estimateScPrevalence", "True",
+            "--scStates", "\"c(1,3)\"", "--txnE", "0.9999", "--txnStrength", "10000",
+            "--outDir", "/output"
+        ]
+        print(" ".join(ichorcna_command))
+
+        try:
+            print("Running ichorCNA analysis...")
+            # subprocess.run(ichorcna_command, check=True)
+            subprocess.run(" ".join(ichorcna_command), shell=True, check=True)
+            print(f"ichorCNA analysis completed. Results saved in {output_dir}")
+        except subprocess.CalledProcessError as e:
+            print(f"Error in ichorCNA command: {e}")
+
+    cna_plot = seg_file.replace(".seg.txt", ".cna.png")
+    rdata_file = seg_file.replace(".seg.txt", ".RData")
+    plot_cna_genomewide(sample_id, rdata_file, cna_plot)
+
 
 
 def normalized_bed_to_dict(input_bed):
@@ -262,6 +254,107 @@ def plot_cn_profile_vs_baseline(sample_name, input_bed, output_png):
     plt.close()
 
 
+def plot_cna_genomewide(sample_name, rdata_file, output_png):
+    """
+    Plots the copy number profile for a given sample, including log2 ratios at individual points
+    and segmentation points, with colors for events.
+    """
+
+    # Convert RData to CSV if not already converted
+    seg_csv = rdata_file.replace(".RData", ".csv")
+
+    if not os.path.isfile(seg_csv):
+        parsed = rdata.parser.parse_file(rdata_file)
+        converted = rdata.conversion.convert(parsed)
+
+        for item in converted["results"]:
+            data = (item["cna"][sample_name])
+            break
+
+        data.to_csv(seg_csv, sep='\t')
+
+    # Load data
+    df = pd.read_csv(seg_csv, sep="\t", header=0)
+
+    # Ensure data types and add "chr" prefix
+    df['chr'] = df['chr'].astype(str).apply(lambda x: f"chr{x}")
+
+    # Create a cumulative genomic position for plotting
+    df['cumulative_pos'] = df['start'] + df.groupby('chr')['start'].transform('min').cumsum()
+
+    df["event"] = df["event"].map({'GAIN': 'Gain', 'AMP': 'Amplification', 
+        'HLAMP': 'High-level Amplification', 'NEUT': 'Neutral', 'HETD': 'Loss'})
+
+    # Define colors for the `event` categories
+    event_colors = {
+        "Gain": "#33b366",
+        "Amplification": "green",
+        "High-level Amplification": "#003200",
+        "Neutral": "blue",
+        "Loss": "red",
+        # Add more event types if necessary
+    }
+
+    # Prepare chromosome ticks and colors
+    chromosomes = df['chr'].tolist()
+    chr_colors = {}
+    chr_limits = {}
+    ticks = []
+    unique_chromosomes = []
+    chr_count = 0
+
+    for chrom in chromosomes:
+        chr_count += 1
+        color = "#686868"
+        if chrom not in chr_colors:
+            chr_colors[chrom] = color
+            unique_chromosomes.append(chrom)
+        if chrom not in chr_limits:
+            chr_limits[chrom] = chr_count
+            ticks.append(chr_count)
+
+    # Set up the plot
+    plt.figure(figsize=(20, 5))
+
+
+    # Plot individual log2 ratios with event-based coloring
+    sns.scatterplot(
+        x='Unnamed: 0',
+        y='logR',
+        hue='event',
+        palette=event_colors,
+        data=df,
+        s=8,
+        alpha=0.7
+    )
+    sns.despine(left=False, bottom=True)
+    # plt.legend(labels=['Gain', 'Amplification', 'High-level Amplification', 'Neutral', 'Loss'])
+
+
+    plt.axhline(color="lightgrey")
+    # Add vertical lines for chromosome boundaries
+    for chrom, limit in chr_limits.items():
+        plt.axvline(x=limit, color="grey", linestyle="--", linewidth=0.5)
+
+    # Add chromosome labels
+    plt.xticks(ticks, labels=unique_chromosomes, rotation=45, fontsize=10)
+
+    # Set titles and labels
+    plt.title(f"CNA Profile for Sample {sample_name}", fontsize=16, weight='bold')
+    plt.ylabel("Log2 Ratio", fontsize=14)
+    # plt.xlabel("Chromosomes", fontsize=14)
+    plt.ylim(-2, 2)  # Adjust y-axis limits if needed
+
+    # Add legend
+    plt.legend(loc="upper right")
+
+    # Save the plot
+    plt.tight_layout()
+    plt.savefig(output_png)
+    plt.close()
+
+
+
 def plot_cn_profile_intrasample(sample_name, input_bed, output_png):
     """ """
 
@@ -347,20 +440,20 @@ def run_cn_workflow(sample_list, ann_dict, output_dir):
 
     sample_list = calculate_log2_ratios(sample_list, output_dir)
 
-    for sample in sample_list:
-        if sample.origin == "tumor":
-            # copy number plot
-            cn_png =  os.path.join(cna_folder, f"{sample.name}.cn.png")
-            plot_cn_profile_vs_baseline(sample.name, sample.log2_ratios, cn_png)
+    # for sample in sample_list:
+    #     if sample.origin == "tumor":
+    #         # copy number plot
+    #         cn_png =  os.path.join(cna_folder, f"{sample.name}.cn.png")
+    #         # plot_cn_profile_vs_baseline(sample.name, sample.log2_ratios, cn_png)
 
-        cn_png =  os.path.join(cna_folder, f"{sample.name}.intrasample.cn.png")
-        plot_cn_profile_intrasample(sample.name, sample.normalized_bed, cn_png)
+    #     cn_png =  os.path.join(cna_folder, f"{sample.name}.intrasample.cn.png")
+    #     # plot_cn_profile_intrasample(sample.name, sample.normalized_bed, cn_png)
 
 
     #plot_cn_profile(sample.name, normalized_bed, cn_png)
     for sample in sample_list:
         if sample.origin == "tumor":
-            run_ichorcna_docker(sample.bam, cna_folder, sample.name)
+            run_ichorcna_docker(sample.bam, cna_folder, sample.fragment_wig, sample.name)
 
 
     return sample_list
