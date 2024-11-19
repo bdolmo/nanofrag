@@ -1,0 +1,16 @@
+name: nanofrag_env
+channels:
+  - defaults
+dependencies:
+  - pip
+  - pip:
+    - pysam
+    - bx-python
+    - matplotlib==3.9.2
+    - natsort==8.4.0
+    - numpy==2.1.3
+    - pandas==2.2.3
+    - rdata==0.11.2
+    - scikit-learn==1.5.2
+    - scipy==1.14.1
+    - seaborn==0.13.2

@@ -5,6 +5,7 @@ chr1	16799163	16849163	scaffold
 chr1	29552233	29553835	scaffold
 chr1	91386300	91388400	Low Mappability
 chr1	103594400	103760600	High Signal Region
+chr1	117000000	150000000	High Signal Region
 chr1	121605200	124938900	High Signal Region,contig,contig,contig,contig,contig,contig
 chr1	124977944	124978326	scaffold
 chr1	125013060	125013223	scaffold
@@ -246,6 +247,7 @@ chr6	256500	382800	High Signal Region
 chr6	861500	864200	High Signal Region
 chr6	1052800	1054800	High Signal Region
 chr6	26669200	26832300	High Signal Region
+chr6	27000000	35000000	High Signal Region
 chr6	33484600	33486400	High Signal Region
 chr6	34070600	34074000	High Signal Region
 chr6	38262000	38301600	High Signal Region
@@ -373,6 +375,7 @@ chr7	224500	241300	High Signal Region,scaffold
 chr7	904700	907100	Low Mappability
 chr7	1271400	1273500	High Signal Region
 chr7	45251000	45253000	High Signal Region
+chr7	52000000	76000000	High Signal Region
 chr7	56369500	56375600	High Signal Region
 chr7	57485300	57497800	High Signal Region
 chr7	57611600	57637700	Low Mappability
@@ -397,6 +400,7 @@ chr7	158594300	158596200	High Signal Region
 chr7	158893100	158918100	High Signal Region
 chr7	159334900	159345973	High Signal Region,telomere
 chr8	0	60000	telomere,contig
+chr8	1000000	16000000	High Signal Region,contig
 chr8	7209800	7914700	High Signal Region,contig
 chr8	7940500	8075700	High Signal Region
 chr8	8128200	8204600	High Signal Region
@@ -565,7 +569,7 @@ chr14	74711700	74729000	High Signal Region
 chr14	86074000	86076000	High Signal Region
 chr14	86593300	86595200	High Signal Region
 chr14	88443700	88458100	High Signal Region
-chr14	100525900	100527800	High Signal Region
+chr14	90000000	100527800	High Signal Region
 chr14	101267600	101272200	High Signal Region
 chr14	101674400	101676400	High Signal Region
 chr14	104288100	104290200	High Signal Region
@@ -574,7 +578,7 @@ chr14	105568500	105583900	High Signal Region
 chr14	105616500	105618600	High Signal Region
 chr14	106326900	106367700	High Signal Region
 chr14	106883718	107043718	contig,telomere
-chr15	0	17035000	telomere,High Signal Region,short_arm
+chr15	0	34000000	telomere,High Signal Region,short_arm
 chr15	17049135	17049334	scaffold
 chr15	17058500	19790100	High Signal Region,scaffold,contig,contig,contig,contig
 chr15	20005600	22606300	High Signal Region,scaffold,scaffold,scaffold,contig
@@ -604,8 +608,10 @@ chr15_KN538374v1_fix	1076278	1079711	scaffold
 chr15_KN538374v1_fix	4501706	4535264	scaffold
 chr15_KQ031389v1_alt	529084	1869010	scaffold
 chr16	0	10000	telomere
+chr16	8000000	19000000	High Signal Region
+chr16	12000000	16000000	High Signal Region
 chr16	18436486	18486486	contig
-chr16	29430800	29566900	Low Mappability
+chr16	28000000	49000000	Low Mappability
 chr16	33214595	33264595	scaffold
 chr16	33392411	33442411	scaffold
 chr16	34061400	34121400	High Signal Region
@@ -641,6 +647,7 @@ chr17	26698590	26698998	scaffold
 chr17	26720420	26721376	scaffold
 chr17	26735204	26735774	scaffold
 chr17	26766800	26987200	High Signal Region,scaffold,scaffold,scaffold,scaffold,contig,contig
+chr17	33000000	39000000	scaffold
 chr17	43227600	43324300	High Signal Region
 chr17	45511500	45641300	Low Mappability
 chr17	53104900	53107300	High Signal Region

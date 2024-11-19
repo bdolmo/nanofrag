@@ -12,6 +12,7 @@ import numpy as np
 import re
 from scipy.signal import savgol_filter
 import multiprocessing
+import pysam
 
 
 def calculate_actual_fragment_size(cigar, sequence_length):
@@ -39,40 +40,72 @@ def calculate_actual_fragment_size(cigar, sequence_length):
 
     return sequence_length
 
-
 def get_read_size_histogram(bam_file, output_txt, limit=5000000):
     """
-        Plot a histogram of read sizes, skipping reads with mapping quality < 20, using the first 50 million reads.
+    Plot a histogram of read sizes, skipping reads with mapping quality < 20, using the first 5 million reads.
     """
-
     if not os.path.isfile(output_txt):
         with open(output_txt, 'w') as out_file:
-            # Use samtools to stream the BAM file and limit to first 50 million reads
-            cmd = f"samtools view {bam_file} chr1"
-            with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, text=True) as proc:
-                count = 0
-                for line in proc.stdout:
-                    if count >= limit:
-                        break
+            # Open the BAM file with pysam
+            bam = pysam.AlignmentFile(bam_file, "rb")
+            count = 0
+            
+            for read in bam.fetch('chr1'):  # Fetch reads from chromosome 1
+                if count >= limit:
+                    break
 
-                    fields = line.split("\t")
-                    if len(fields) < 10:
-                        continue
+                if read.is_unmapped or read.mapping_quality < 20:
+                    continue
 
-                    sequence = fields[9]  # Sequence
-                    mapqual = int(fields[4])  # Mapping quality
-                    cigar = fields[5]  # CIGAR string
-                    # Get the actual fragment size by adjusting for soft-clipping
-                    fragment_size = calculate_actual_fragment_size(cigar, len(sequence))
-                    # Skip low-quality reads (mapqual < 20)
-                    if mapqual >= 20:
-                        out_file.write(f"{fragment_size}\n")
-                        count+=1
-                    
-        msg = f" INFO: Fragment sizes saved to {output_txt}"
+                cigar = read.cigarstring  # CIGAR string
+                sequence_length = read.query_length  # Sequence length
+                # Calculate actual fragment size
+                fragment_size = calculate_actual_fragment_size(cigar, sequence_length)
+                
+                out_file.write(f"{fragment_size}\n")
+                count += 1
+            
+            bam.close()
+            
+        msg = f"INFO: Fragment sizes saved to {output_txt}"
         print(msg)
     
     return output_txt
+
+
+# def get_read_size_histogram(bam_file, output_txt, limit=5000000):
+#     """
+#         Plot a histogram of read sizes, skipping reads with mapping quality < 20, using the first 50 million reads.
+#     """
+
+#     if not os.path.isfile(output_txt):
+#         with open(output_txt, 'w') as out_file:
+#             # Use samtools to stream the BAM file and limit to first 50 million reads
+#             cmd = f"samtools view {bam_file} chr1"
+#             with subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, text=True) as proc:
+#                 count = 0
+#                 for line in proc.stdout:
+#                     if count >= limit:
+#                         break
+
+#                     fields = line.split("\t")
+#                     if len(fields) < 10:
+#                         continue
+
+#                     sequence = fields[9]  # Sequence
+#                     mapqual = int(fields[4])  # Mapping quality
+#                     cigar = fields[5]  # CIGAR string
+#                     # Get the actual fragment size by adjusting for soft-clipping
+#                     fragment_size = calculate_actual_fragment_size(cigar, len(sequence))
+#                     # Skip low-quality reads (mapqual < 20)
+#                     if mapqual >= 20:
+#                         out_file.write(f"{fragment_size}\n")
+#                         count+=1
+                    
+#         msg = f" INFO: Fragment sizes saved to {output_txt}"
+#         print(msg)
+    
+#     return output_txt
 
 
 def plot_fragment_histogram(input_file, output_png, analysis_type):
@@ -114,7 +147,7 @@ def calculate_fragment_counts(sample, fragment_folder, windows_bed, cxx_binary_p
         subprocess.run(command, check=True)
 
 
-def process_sample(sample, fragment_folder, windows_bed, cfdna_counter_path):
+def process_sample(sample, ann_dict, fragment_folder, windows_bed, cfdna_counter_path):
     # Define the output file for the current sample
     fragment_bed = os.path.join(fragment_folder, f"{sample.name}.fragmentation.data.bed")
     fragment_wig = os.path.join(fragment_folder, f"{sample.name}.fragmentation.wig")
@@ -126,7 +159,7 @@ def process_sample(sample, fragment_folder, windows_bed, cfdna_counter_path):
 
     # Generate the output PNG for the fragment size ratio plot
     fragment_size_ratio_png = os.path.join(fragment_folder, f"{sample.name}.fsr.png")
-    plot_fragmentation_ratio(sample.name, fragment_bed, fragment_size_ratio_png)
+    plot_fragmentation_ratio(sample.name, fragment_bed, ann_dict["blacklist"], fragment_size_ratio_png)
 
 
 
@@ -147,7 +180,7 @@ def run_fragmentomic_analysis(sample_list, ann_dict, bin_dict, genome, output_di
     chromosomes.append("chrY")
 
     # Create a list of arguments for each sample
-    args = [(sample, fragment_folder, windows_bed, bin_dict["cfdna_counter"]) for sample in sample_list]
+    args = [(sample, ann_dict, fragment_folder, windows_bed, bin_dict["cfdna_counter"]) for sample in sample_list]
 
     # Use a multiprocessing Pool to process each sample in parallel
     with multiprocessing.Pool(processes=num_cpus) as pool:
@@ -174,56 +207,141 @@ def run_fragmentomic_analysis(sample_list, ann_dict, bin_dict, genome, output_di
     return sample_list
         
 
-def plot_fragmentation_ratio(sample_name, input_bed, output_png):
-    """ """
+import natsort
 
-    df = pd.read_csv(input_bed, sep="\t", header=0, names=["chr", "pos", "end", "read_count", 
-        "ultra_short_fragments", "short_fragments", "long_fragments", "fragment_size_ratio"])
-
-    df["fsr_zscore"] = ((df["fragment_size_ratio"]-df["fragment_size_ratio"].mean())/df["fragment_size_ratio"].std())
-    df["fsr_zscore"] = savgol_filter(df["fsr_zscore"], 15, 3)
-
-    chromosomes = df['chr'].tolist()
-    chr_colors = {}
-    chr_limits = {}
+def plot_fragmentation_ratio(sample_name, input_bed, blacklist_bed, output_png):
+    """
+    Plot fragmentation ratio (short vs long fragments).
+    """
     
-    idx = 0
-    chr_count = 0
-    unique_chromosomes = []
+    # Read input BED file
+    df = pd.read_csv(
+        input_bed, 
+        sep="\t", 
+        header=0, 
+        names=["chr", "pos", "end", "read_count", 
+               "ultra_short_fragments", "short_fragments", "long_fragments", "fragment_size_ratio"]
+    )
+    df = df[df['chr']!='chrX']
+    df = df[df['chr']!='chrY']
+
+    
+    # Read blacklist BED file
+    blacklist = pd.read_csv(
+        blacklist_bed, 
+        sep="\t", 
+        header=None, 
+        names=["chr", "start", "end", "annotations"]
+    )
+    
+    # Remove bins overlapping blacklisted regions
+    def overlaps_blacklist(row, blacklist):
+        """
+        Check if a row overlaps any blacklist region.
+        """
+        overlaps = blacklist[
+            (blacklist["chr"] == row["chr"]) &
+            (blacklist["start"] < row["end"]) &
+            (blacklist["end"] > row["pos"])
+        ]
+        return not overlaps.empty
+
+    # Filter out rows that overlap the blacklist
+    df = df[~df.apply(lambda row: overlaps_blacklist(row, blacklist), axis=1)]
+
+    # Calculate new 5 Mb windows specific to each chromosome
+    df["window"] = df.groupby("chr")["pos"].transform(lambda x: x // 1000000)
+    
+    # Group by chromosome and window, then aggregate
+    # grouped = df.groupby(["chr", "pos", "window"]).agg({
+    #     "read_count": "sum",
+    #     "short_fragments": "sum"
+    # }).reset_index()
+    # grouped = df
+    
+    # Recompute fragment_size_ratio
+    df["fragment_size_ratio"] = df["short_fragments"] / df["read_count"]
+    
+    # Compute z-scores of the fragment_size_ratio
+    df["fsr_zscore"] = (df["fragment_size_ratio"] - df["fragment_size_ratio"].mean()) / df["fragment_size_ratio"].std()
+    
+    # Apply Savitzky-Golay filter for smoothing
+    df["fsr_zscore"] = savgol_filter(df["fsr_zscore"], 12, 2)
+    
+    # grouped = grouped[grouped['fsr_zscore']>=-2.5]
+    # grouped = grouped[grouped['fsr_zscore']<=2.5]
+
+
+    # Prepare for plotting
+    df["x_pos"] = df.index
+    # grouped["pos"] = grouped.index
+
+    # Sort chromosomes naturally
+    sorted_chromosomes = df["chr"].unique()
+    # tmp_chr = []
+    # for chrom in sorted_chromosomes:
+    #     if "X" in chrom:
+    #         continue 
+    #     if "Y" in chrom:
+    #         continue
+    #     if chrom == "chr22":
+    #         continue
+    #     tmp_chr.append(chrom)
+    # sorted_chromosomes = tmp_chr
+    # Define chromosome-specific limits and tick positions
+    chr_limits = {}
     ticks = []
-    for chrom in chromosomes:
-        chr_count += 1
-        color = "#686868"
-        idx = 0
-        if not chrom in chr_colors:
-            chr_colors[chrom] =color
-            unique_chromosomes.append(chrom)
-        if not chrom in chr_limits:
-            chr_limits[chrom] = chr_count
-            ticks.append(chr_count)
-
+    tick_labels = []
+    cumulative_x_pos = 0
+    
+    for chrom in sorted_chromosomes:
+        chrom_data = df[df["chr"] == chrom]
+        start_x = cumulative_x_pos
+        end_x = start_x + len(chrom_data) - 1
+        chr_limits[chrom] = end_x
+        cumulative_x_pos += len(chrom_data)
+        
+        # Add tick in the middle of the chromosome's bins
+        ticks.append((start_x + end_x) // 2)
+        tick_labels.append(chrom)
+    
+    # Update x_pos to reflect cumulative positioning
+    df["x_pos"] = range(len(df))
+    
+    # Plotting
     plt.figure(figsize=(20, 5))
-    ax = sns.lineplot( x=df.index, y=df["fsr_zscore"])
-
-    # ax.set_xticklabels(unique_chromosomes, rotation=45)
-    ax.set_yticks([-3, 0, 3], ["-3", "0", "3"], fontsize=12)
-
-    ax.set_xticks(ticks, unique_chromosomes, rotation=45, fontsize=12)
-
-
+    ax = sns.lineplot(x="x_pos", y="fsr_zscore", data=df)
+    
+    # X-axis labels and ticks
+    ax.set_xticks(ticks)
+    ax.set_xticklabels(tick_labels, rotation=45, fontsize=12)
+    
+    # Y-axis ticks
+    ax.set_yticks([-5, -2.5, 0, 2.5, 5])
+    ax.set_yticklabels(["-5", "-2.5", "0", "2.5", "5"], fontsize=12)
+    
     # Set titles and labels
-    plt.title(f"Fragmentation ratio for sample {sample_name}", fontsize=16, weight='bold')
-    plt.ylabel("Frag Size Ratio (z-score)", fontsize=14)
-    plt.ylim(-3.2, 3.2)
+    plt.title(f"Fragmentation Size Ratio - {sample_name}", fontsize=16, weight='bold')
+    plt.ylabel("Z-score", fontsize=14)
+    plt.ylim(-5.2, 5.2)
+    
+    # Vertical lines for chromosome boundaries
+    for chrom in chr_limits.values():
+        plt.axvline(x=chrom, ymin=0, ymax=1, color="lightgrey", linestyle="--")
+    
+    plt.legend([], [], frameon=False)
+        # Removing the spines 
+    sns.despine() 
 
-    for chrom in chr_limits:
-        plt.axvline(x=chr_limits[chrom], ymin=0, ymax=3, color="grey", linestyle="--")
-
-    plt.legend([],[], frameon=False)
+    # output_test_csv = output_png.replace(".png", ".test.csv")
+    # grouped.reset_index().to_csv(output_test_csv)
+    # print(grouped)
 
     # Save the plot
     plt.savefig(output_png)
     plt.close()
+
+
 
 
 def plot_fragment_distribution(sample_list, fragment_png):
@@ -317,7 +435,7 @@ def plot_fragment_distribution(sample_list, fragment_png):
         #     alpha=.5, linewidth=0,
         # )
 
-        sns.histplot(result[col], bins=8000, label=col, fill=False, stat='density', color=color, alpha=.5)
+        sns.histplot(result[col], bins=8000, label=col, fill=True, color=color, alpha=.5)
         idx+=1
 
     summary_name = os.path.join(os.path.dirname(fragment_png), "fragmentation.summary.csv")
@@ -345,9 +463,9 @@ def plot_fragment_distribution(sample_list, fragment_png):
     plt.yticks(fontsize=12)
     plt.xlim(0, 800)
 
-    for idx,mode in enumerate(mode_vals):
-        max_val = max_vals[idx]
-        plt.axvline(x=mode.iloc[0], ymin=0, ymax=max_val, color="white", linestyle="--")
+    # for idx,mode in enumerate(mode_vals):
+    #     max_val = max_vals[idx]
+    #     plt.axvline(x=mode.iloc[0], ymin=0, ymax=max_val, color=colors[idx], linestyle="--")
 
     plt.tight_layout()
     plt.legend(title="Samples")
