@@ -117,7 +117,7 @@ def plot_fragment_histogram(input_file, output_png, analysis_type):
     sns.histplot(fragment_sizes['Fragment_Size'], bins=7000, kde=False, color="blue")
 
     # Set titles and labels
-    plt.title("Distribution of fragment size)", fontsize=16, weight='bold')
+    plt.title("Distribution of fragment size", fontsize=16, weight='bold')
     plt.xlabel("Fragment Size (bp)", fontsize=14)
     plt.ylabel("Frequency", fontsize=14)
     plt.xticks(fontsize=12)
@@ -207,13 +207,13 @@ def run_fragmentomic_analysis(sample_list, ann_dict, bin_dict, genome, output_di
     return sample_list
         
 
-import natsort
-
 def plot_fragmentation_ratio(sample_name, input_bed, blacklist_bed, output_png):
     """
     Plot fragmentation ratio (short vs long fragments).
     """
     
+    sample_name = sample_name.replace(".methylation", "").replace(".sorted.aligned", "")
+
     # Read input BED file
     df = pd.read_csv(
         input_bed, 
@@ -267,9 +267,15 @@ def plot_fragmentation_ratio(sample_name, input_bed, blacklist_bed, output_png):
     
     # Apply Savitzky-Golay filter for smoothing
     df["fsr_zscore"] = savgol_filter(df["fsr_zscore"], 12, 2)
+
+    variance = round(df["fsr_zscore"].var(),3)
     
     # grouped = grouped[grouped['fsr_zscore']>=-2.5]
     # grouped = grouped[grouped['fsr_zscore']<=2.5]
+
+    Q3 = np.quantile(df["fsr_zscore"], 0.75)
+    Q1 = np.quantile(df["fsr_zscore"], 0.25)
+    IQR = round(Q3 - Q1,3)
 
 
     # Prepare for plotting
@@ -318,10 +324,10 @@ def plot_fragmentation_ratio(sample_name, input_bed, blacklist_bed, output_png):
     
     # Y-axis ticks
     ax.set_yticks([-5, -2.5, 0, 2.5, 5])
-    ax.set_yticklabels(["-5", "-2.5", "0", "2.5", "5"], fontsize=12)
+    ax.set_yticklabels(["-5", "-2.5", "0", "2.5", "5"], fontsize=14)
     
     # Set titles and labels
-    plt.title(f"Fragmentation Size Ratio - {sample_name}", fontsize=16, weight='bold')
+    plt.title(f"Fragmentation Size Ratio {sample_name}\nVariance: {variance}, IQR: {IQR}", fontsize=18)
     plt.ylabel("Z-score", fontsize=14)
     plt.ylim(-5.2, 5.2)
     
@@ -338,7 +344,7 @@ def plot_fragmentation_ratio(sample_name, input_bed, blacklist_bed, output_png):
     # print(grouped)
 
     # Save the plot
-    plt.savefig(output_png)
+    plt.savefig(output_png, dpi=300)
     plt.close()
 
 

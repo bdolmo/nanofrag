@@ -1,6 +1,6 @@
 # NanoFrag
 
-**NanoFrag** is a pipeline for analyzing DNA fragmentation and other patterns from liquid biopsy using nanopore sequencing.
+Analyze DNA fragmentation and other patterns from liquid biopsy using nanopore sequencing.
 
 ---
 
@@ -24,7 +24,7 @@ cd nanofrag
 
 Install dependencies:
 
-- python 3.8+ is required.
+- python 3.10+ is required.
 - Install python dependencies with:
 
 ```bash
@@ -56,7 +56,7 @@ python nanofrag.py --tumor_list <tumor_bam_list> --normal_list <normal_bam_list>
                    --threads <num_threads> [optional flags]
 ```
 
-### Required Arguments
+### Required arguments
 
 - `--tumor_list`: Path to a text file containing tumor BAM file paths (one per line).
 - `--normal_list`: Path to a text file containing normal BAM file paths (one per line).
@@ -64,7 +64,7 @@ python nanofrag.py --tumor_list <tumor_bam_list> --normal_list <normal_bam_list>
 - `--output_dir`: Directory for output files.
 - `--threads`: number of threads to use.
 
-### Optional Flags (if you wish to skip any step)
+### Optional flags (if you wish to skip any step)
 
 - `--skip_fragmentation`: Skip fragmentation analysis.
 - `--skip_cn`: Skip copy number analysis.

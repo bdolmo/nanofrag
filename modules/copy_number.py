@@ -256,22 +256,45 @@ def plot_cn_profile_vs_baseline(sample_name, input_bed, output_png):
 
 def plot_cna_genomewide(sample_name, rdata_file, output_png):
     """
-    Plots the copy number profile for a given sample, including log2 ratios at individual points
-    and segmentation points, with colors for events.
+    Plots the copy number profile for a given sample
     """
 
     # Convert RData to CSV if not already converted
     seg_csv = rdata_file.replace(".RData", ".csv")
 
-    if not os.path.isfile(seg_csv):
-        parsed = rdata.parser.parse_file(rdata_file)
-        converted = rdata.conversion.convert(parsed)
+    # if not os.path.isfile(seg_csv):
+    parsed = rdata.parser.parse_file(rdata_file)
+    converted = rdata.conversion.convert(parsed)
 
-        for item in converted["results"]:
-            data = (item["cna"][sample_name])
-            break
+    for item in converted["results"]:
+        data = (item["cna"][sample_name])
+        break
 
-        data.to_csv(seg_csv, sep='\t')
+    data.to_csv(seg_csv, sep='\t')
+    max_idx = (converted['loglik']['loglik'].idxmax())-1
+    selected_row = converted["loglik"].iloc[max_idx]
+
+    # init                     n0.8-p2
+    # n_est                       0.63
+    # phi_est                    1.728
+    # BIC                         <NA>
+    # Frac_genome_subclonal       0.17
+    # Frac_CNA_subclonal          0.26
+    # loglik                    1363.0
+
+    # ploidy = "."
+    # tmp_ploidy = selected_row["init"].split("-")
+    # if len(tmp_ploidy) > 1:
+    #     ploidy = tmp_ploidy[1].replace("p", "")
+    ploidy = selected_row["phi_est"]
+
+
+    n_est = selected_row["n_est"]
+    t_purity = round(1-float(n_est), 3)
+    genome_subclonal_est = selected_row["Frac_genome_subclonal"]
+    cna_subclonal_est = selected_row["Frac_CNA_subclonal"]
+    loglik = selected_row["loglik"]
+
 
     # Load data
     df = pd.read_csv(seg_csv, sep="\t", header=0)
@@ -314,7 +337,7 @@ def plot_cna_genomewide(sample_name, rdata_file, output_png):
             ticks.append(chr_count)
 
     # Set up the plot
-    plt.figure(figsize=(20, 5))
+    plt.figure(figsize=(18, 5))
 
 
     # Plot individual log2 ratios with event-based coloring
@@ -324,8 +347,8 @@ def plot_cna_genomewide(sample_name, rdata_file, output_png):
         hue='event',
         palette=event_colors,
         data=df,
-        s=8,
-        alpha=0.7
+        s=9,
+        alpha=0.9
     )
     sns.despine(left=False, bottom=True)
     # plt.legend(labels=['Gain', 'Amplification', 'High-level Amplification', 'Neutral', 'Loss'])
@@ -337,11 +360,14 @@ def plot_cna_genomewide(sample_name, rdata_file, output_png):
         plt.axvline(x=limit, color="grey", linestyle="--", linewidth=0.5)
 
     # Add chromosome labels
-    plt.xticks(ticks, labels=unique_chromosomes, rotation=45, fontsize=10)
+    plt.xticks(ticks, labels=unique_chromosomes, rotation=45, fontsize=14)
+    plt.yticks([-2, -1, 0, 1, 2], fontsize=14) 
 
     # Set titles and labels
-    plt.title(f"CNA Profile for Sample {sample_name}", fontsize=16, weight='bold')
+    plt.title(f"{sample_name}\nTumor purity: {t_purity} Ploidy: {ploidy}", fontsize=18)
     plt.ylabel("Log2 Ratio", fontsize=14)
+    plt.xlabel("", fontsize=1)
+
     # plt.xlabel("Chromosomes", fontsize=14)
     plt.ylim(-2, 2)  # Adjust y-axis limits if needed
 
@@ -350,7 +376,7 @@ def plot_cna_genomewide(sample_name, rdata_file, output_png):
 
     # Save the plot
     plt.tight_layout()
-    plt.savefig(output_png)
+    plt.savefig(output_png,  dpi=300)
     plt.close()
 
 
@@ -394,13 +420,11 @@ def plot_cn_profile_intrasample(sample_name, input_bed, output_png):
     sdata = df["short_fragments"].dropna()
     # print(sample_name, "variance intra:", sdata.var())
 
-    plt.figure(figsize=(20, 5))
+    plt.figure(figsize=(18, 5))
     ax = sns.scatterplot( x=df.index, y=df["short_fragments"], s=4, hue=df["cn_status"], palette=cn_status_colors)
-
 
     # ax.set_xticklabels(unique_chromosomes, rotation=45)
     ax.set_xticks(ticks, unique_chromosomes, rotation=45)
-
 
     # Set titles and labels
     plt.title(f"CNA profile for sample {sample_name}", fontsize=16, weight='bold')
@@ -452,8 +476,8 @@ def run_cn_workflow(sample_list, ann_dict, output_dir):
 
     #plot_cn_profile(sample.name, normalized_bed, cn_png)
     for sample in sample_list:
-        if sample.origin == "tumor":
-            run_ichorcna_docker(sample.bam, cna_folder, sample.fragment_wig, sample.name)
+        # if sample.origin == "tumor":
+        run_ichorcna_docker(sample.bam, cna_folder, sample.fragment_wig, sample.name)
 
 
     return sample_list
