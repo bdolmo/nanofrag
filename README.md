@@ -6,10 +6,10 @@ Analyze DNA fragmentation and other patterns from liquid biopsy using nanopore s
 
 ## Features
 
-- **Fragmentation Analysis**: Calculates fragmentation metrics.
-- **Copy Number Analysis**: Detects copy number alterations.
+- **Fragmentation Analysis**: fragment size histogram and ratios.
+- **Copy Number Alterations**: CNA detection using ichorCNA.
 - **Methylation Analysis**: Get methylation patterns genome-wide, perform deconvolution into cell/tissues.
-- **Small Variant Detection**: detect SNVs (not ready, experimental)
+- **Small Variant Detection**: detect SNVs (not ready", experimental)
 
 ---
 
