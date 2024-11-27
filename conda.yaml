@@ -3,6 +3,7 @@ channels:
   - defaults
 dependencies:
   - pip
+  - python
   - pip:
     - pysam
     - bx-python

@@ -1,7 +1,7 @@
 import os
 import sys
 import argparse
-from modules.utils import get_bams_from_list, set_annotation_resources, set_binaries_configuration, set_sample_configuration
+from modules.utils import get_input_bams, set_annotation_resources, set_binaries_configuration, set_sample_configuration
 from modules.fragmentomics import run_fragmentomic_analysis
 from modules.nucleosome import run_wps_analysis, run_tss_analysis
 from modules.copy_number import run_cn_workflow
@@ -51,8 +51,8 @@ if __name__ == "__main__":
     skip_small_variants = args.skip_small_variants
     skip_methylation = args.skip_methylation
 
-    tumor_bams = get_bams_from_list(tumor_list)
-    normal_bams = get_bams_from_list(normal_list)
+    tumor_bams = get_input_bams(tumor_list)
+    normal_bams = get_input_bams(normal_list)
 
     ann_dict = set_annotation_resources(main_dir)
     sample_list =  set_sample_configuration(tumor_bams, normal_bams)

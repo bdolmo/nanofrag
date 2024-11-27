@@ -1,6 +1,7 @@
 import os
 import sys
 import gzip
+import glob
 
 tissues_dict = {
     # Blood cells - soft yellow shades (control-like)
@@ -191,20 +192,24 @@ def set_annotation_resources(main_dir):
 
 
 
-def get_bams_from_list(input_list_txt):
+def get_input_bams(input_bams):
     """ """
 
     bams = []
 
-    if not os.path.isfile(input_list_txt):
-        msg = f" INFO: Missing input list txt file {input_list_txt}"
+
+    if os.path.isfile(input_bams):
+        with open(input_bams) as f:
+            for line in f:
+                line = line.rstrip("\n")
+                bams.append(line)
+    if os.path.isdir(input_bams):
+        bams = glob.glob(input_bams+"/*.bam")
+
+    if not bams:
+        msg = f" INFO: Missing input bam files at {input_bams}"
         print(msg)
         sys.exit()
-
-    with open(input_list_txt) as f:
-        for line in f:
-            line = line.rstrip("\n")
-            bams.append(line)
 
     return bams
 
