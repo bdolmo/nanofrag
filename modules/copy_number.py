@@ -50,7 +50,7 @@ def run_ichorcna_docker(input_bam, output_dir, docker_output, wig_file_path, sam
 
 
     seg_file = os.path.join(output_dir, f"{sample_id}.seg.txt")
-    if os.path.isfile(seg_file):
+    if not os.path.isfile(seg_file):
         # Step 2: Run ichorCNA with the generated .wig file
         ichorcna_command = [
             "docker", "run", "-it", "-v", f"{docker_output}/CNA:/output", "-v", f"{docker_output}/FRAGMENTATION:/fragment_folder",
