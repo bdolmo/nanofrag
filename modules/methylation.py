@@ -214,7 +214,7 @@ def plot_deconvolution(sample_name, input_file, output_png):
     plt.close()
 
 
-def deconvolve_tissues_with_nanomix(bin_dict, sample, output_dir, methyl_bed, atlas_bed):
+def deconvolve_tissues_with_nanomix(bin_dict, sample, docker_output, output_dir, methyl_bed, atlas_bed):
     """
     Run the nanomix deconvolute command using Docker with specified options.
     """
@@ -239,7 +239,7 @@ def deconvolve_tissues_with_nanomix(bin_dict, sample, output_dir, methyl_bed, at
     # Construct the Docker command
     nanomix_command = [
         "docker", "run", "--rm", "-v", f"{atlas_path}:/data/methylation_atlas",
-        "-v", f"{output_path}:/data/output_dir", "bdolmo/nanomix:1.0.0",
+        "-v", f"{docker_output}/METHYLATION:/data/output_dir", "bdolmo/nanomix:1.0.0",
         "/bin/bash", "-c",
         f"nanomix deconvolute -a /data/methylation_atlas /data/output_dir/{os.path.basename(methyl_nanomix_bed)} > /data/output_dir/{sample.name}_tissue-proportions_nanomix_5hmC.txt"
     ]
@@ -254,7 +254,7 @@ def deconvolve_tissues_with_nanomix(bin_dict, sample, output_dir, methyl_bed, at
     plot_deconvolution(sample.name, output_file, output_png)
 
 
-def run_methylation_analysis(sample_list, ann_dict, bin_dict, threads, reference_fasta, output_dir):
+def run_methylation_analysis(sample_list, ann_dict, bin_dict, threads, reference_fasta, docker_output, output_dir):
     """ 
     """
     methylation_folder = os.path.join(output_dir, "METHYLATION")
@@ -268,7 +268,7 @@ def run_methylation_analysis(sample_list, ann_dict, bin_dict, threads, reference
         sample.add("methylation_pileup", pileup_bed)
         run_modkit_pileup(bin_dict, reference_fasta, threads, sample.bam, pileup_bed)
 
-        deconvolve_tissues_with_nanomix(bin_dict, sample, methylation_folder, pileup_bed, ann_dict["nanomix_atlas"])
+        deconvolve_tissues_with_nanomix(bin_dict, sample, docker_output, methylation_folder, pileup_bed, ann_dict["nanomix_atlas"])
         # sys.exit()
 
         if sample.origin == "tumor":

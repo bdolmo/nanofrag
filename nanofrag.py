@@ -76,7 +76,7 @@ if __name__ == "__main__":
         sample_list = run_cn_workflow(sample_list, docker_output, ann_dict, output_dir)
 
     if skip_methylation == False:
-        sample_list = run_methylation_analysis(sample_list, ann_dict, bin_dict, threads, genome, output_dir)
+        sample_list = run_methylation_analysis(sample_list, ann_dict, bin_dict, threads, genome, docker_output, output_dir)
 
     sys.exit()
 
