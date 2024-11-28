@@ -20,6 +20,8 @@ def get_args():
     parser.add_argument("--normal_list", dest="normal_list", type=str, required=True)
     parser.add_argument("--reference", dest="reference", type=str, required=True)
     parser.add_argument("--output_dir", dest="output_dir", type=str, required=True)
+    parser.add_argument("--docker_output",  dest="docker_output", type=str, required=False)
+
     parser.add_argument("--threads", dest="threads", type=int, required=True)
     parser.add_argument("--skip_fragmentation", dest="skip_fragmentation", 
         help="Skip fragment size histogram calculation", action="store_true")
@@ -51,6 +53,12 @@ if __name__ == "__main__":
     skip_small_variants = args.skip_small_variants
     skip_methylation = args.skip_methylation
 
+    if not hasattr(args, "docker_output"):
+        docker_output = output_dir
+    else:
+        docker_output = args.docker_output
+
+
     tumor_bams = get_input_bams(tumor_list)
     normal_bams = get_input_bams(normal_list)
 
@@ -65,7 +73,7 @@ if __name__ == "__main__":
         sample_list = run_fragmentomic_analysis(sample_list, ann_dict, bin_dict, genome, output_dir, threads, window_size=5000000)
     
     if skip_cn == False:
-        sample_list = run_cn_workflow(sample_list, ann_dict, output_dir)
+        sample_list = run_cn_workflow(sample_list, docker_output, ann_dict, output_dir)
 
     if skip_methylation == False:
         sample_list = run_methylation_analysis(sample_list, ann_dict, bin_dict, threads, genome, output_dir)

@@ -17,7 +17,7 @@ import rdata
 
 
 
-def run_ichorcna_docker(input_bam, output_dir, wig_file_path, sample_id="tumor_sample"):
+def run_ichorcna_docker(input_bam, output_dir, docker_output, wig_file_path, sample_id="tumor_sample"):
     # Define paths within the container
     # wig_file_path = f"{output_dir}/{sample_id}.wig"
     
@@ -50,10 +50,10 @@ def run_ichorcna_docker(input_bam, output_dir, wig_file_path, sample_id="tumor_s
 
 
     seg_file = os.path.join(output_dir, f"{sample_id}.seg.txt")
-    if not os.path.isfile(seg_file):
+    if os.path.isfile(seg_file):
         # Step 2: Run ichorCNA with the generated .wig file
         ichorcna_command = [
-            "docker", "run", "-it", "-v", f"{output_dir}:/output", "-v", f"{fragment_folder}:/fragment_folder",
+            "docker", "run", "-it", "-v", f"{docker_output}/CNA:/output", "-v", f"{docker_output}/FRAGMENTATION:/fragment_folder",
             "seqeralabs/ichorcna", "runIchorCNA.R",
             "--id", sample_id, "--WIG", f"/fragment_folder/{wig_name}", "--ploidy", "\"c(2,3)\"",
             "--normal", "\"c(0.5,0.6,0.7,0.8,0.9)\"", "--maxCN", "5",
@@ -441,7 +441,7 @@ def plot_cn_profile_intrasample(sample_name, input_bed, output_png):
     plt.close()
 
 
-def run_cn_workflow(sample_list, ann_dict, output_dir):
+def run_cn_workflow(sample_list, docker_output, ann_dict,  output_dir):
     """ """
 
     cna_folder = os.path.join(output_dir, "CNA")
@@ -477,7 +477,7 @@ def run_cn_workflow(sample_list, ann_dict, output_dir):
     #plot_cn_profile(sample.name, normalized_bed, cn_png)
     for sample in sample_list:
         # if sample.origin == "tumor":
-        run_ichorcna_docker(sample.bam, cna_folder, sample.fragment_wig, sample.name)
+        run_ichorcna_docker(sample.bam, cna_folder, docker_output, sample.fragment_wig, sample.name)
 
 
     return sample_list
