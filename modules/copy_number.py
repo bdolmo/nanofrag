@@ -454,15 +454,15 @@ def run_cn_workflow(sample_list, docker_output, ann_dict,  output_dir):
     # create_windows_bed_wig(chrom_sizes_file, window_size, output_wig_file, output_bed_file)
     # create_windows_bed_wig(ann_dict["chromosomes"], 1000000, windows_wig, windows_bed)
 
-    for sample in sample_list:
-        fragment_bed = os.path.join(output_dir, "FRAGMENTATION",
-            f"{sample.name}.fragmentation.data.bed")
-        normalized_bed = os.path.join(cna_folder,  f"{sample.name}.normalized.bed")
-        sample.add("normalized_bed", normalized_bed)
-        # normalize raw data
-        normalize_raw_depth(sample.name, fragment_bed, normalized_bed)
+    # for sample in sample_list:
+    #     fragment_bed = os.path.join(output_dir, "FRAGMENTATION",
+    #         f"{sample.name}.fragmentation.data.bed")
+    #     normalized_bed = os.path.join(cna_folder,  f"{sample.name}.normalized.bed")
+    #     sample.add("normalized_bed", normalized_bed)
+    #     # normalize raw data
+    #     normalize_raw_depth(sample.name, fragment_bed, normalized_bed)
 
-    sample_list = calculate_log2_ratios(sample_list, output_dir)
+    # sample_list = calculate_log2_ratios(sample_list, output_dir)
 
     # for sample in sample_list:
     #     if sample.origin == "tumor":
