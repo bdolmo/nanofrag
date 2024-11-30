@@ -52,19 +52,40 @@ def run_ichorcna_docker(input_bam, output_dir, docker_output, wig_file_path, sam
     seg_file = os.path.join(output_dir, f"{sample_id}.seg.txt")
     if not os.path.isfile(seg_file):
         # Step 2: Run ichorCNA with the generated .wig file
+        #ichorcna_command = [
+        #    "docker", "run", "-it", "-v", f"{docker_output}/CNA:/output", "-v", f"{docker_output}/FRAGMENTATION:/fragment_folder",
+        #    "seqeralabs/ichorcna", "runIchorCNA.R",
+        #    "--id", sample_id, "--WIG", f"/fragment_folder/{wig_name}", "--ploidy", "\"c(2,3)\"",
+        #    "--normal", "\"c(0.5,0.6,0.7,0.8,0.9)\"", "--maxCN", "5",
+        #    "--gcWig", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/gc_hg38_1000kb.wig",
+        #    "--mapWig", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/map_hg38_1000kb.wig",
+        #    "--centromere", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/GRCh38.GCA_000001405.2_centromere_acen.txt",
+        #    "--includeHOMD", "False", "--estimateNormal", "True",
+        #    "--estimatePloidy", "True", "--estimateScPrevalence", "True",
+        #    "--scStates", "\"c(1,3)\"", "--txnE", "0.9999", "--txnStrength", "10000",
+        #    "--outDir", "/output"
+        #]
         ichorcna_command = [
-            "docker", "run", "-it", "-v", f"{docker_output}/CNA:/output", "-v", f"{docker_output}/FRAGMENTATION:/fragment_folder",
-            "seqeralabs/ichorcna", "runIchorCNA.R",
-            "--id", sample_id, "--WIG", f"/fragment_folder/{wig_name}", "--ploidy", "\"c(2,3)\"",
-            "--normal", "\"c(0.5,0.6,0.7,0.8,0.9)\"", "--maxCN", "5",
-            "--gcWig", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/gc_hg38_1000kb.wig",
-            "--mapWig", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/map_hg38_1000kb.wig",
-            "--centromere", "/opt/conda/share/r-ichorcna-0.1.0.20180710-0/extdata/GRCh38.GCA_000001405.2_centromere_acen.txt",
-            "--includeHOMD", "False", "--estimateNormal", "True",
-            "--estimatePloidy", "True", "--estimateScPrevalence", "True",
-            "--scStates", "\"c(1,3)\"", "--txnE", "0.9999", "--txnStrength", "10000",
-            "--outDir", "/output"
+            "Rscript", "/opt/ichorCNA/scripts/runIchorCNA.R",  # Path to the installed ichorCNA script
+            "--id", sample_id,
+            "--WIG", f"{docker_output}/FRAGMENTATION/{wig_name}",  # Update to point to the local file system
+            "--ploidy", "c(2,3)",
+            "--normal", "c(0.5,0.6,0.7,0.8,0.9)",
+            "--maxCN", "5",
+            "--gcWig", "/opt/ichorCNA/extdata/gc_hg38_1000kb.wig",  # Adjust to the correct local path
+            "--mapWig", "/opt/ichorCNA/extdata/map_hg38_1000kb.wig",
+            "--centromere", "/opt/ichorCNA/extdata/GRCh38.GCA_000001405.2_centromere_acen.txt",
+            "--includeHOMD", "False",
+            "--estimateNormal", "True",
+            "--estimatePloidy", "True",
+            "--estimateScPrevalence", "True",
+            "--scStates", "c(1,3)",
+            "--txnE", "0.9999",
+            "--txnStrength", "10000",
+            "--outDir", f"{docker_output}/CNA"  # Update to point to the desired output directory
         ]
+
+
         print(" ".join(ichorcna_command))
 
         try:

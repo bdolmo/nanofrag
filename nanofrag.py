@@ -1,6 +1,14 @@
 import os
 import sys
 import argparse
+
+
+main_dir = os.path.dirname(os.path.realpath((__file__)))
+
+sys.path.append(main_dir)
+sys.path.append(os.path.join(main_dir, "modules"))
+
+
 from modules.utils import get_input_bams, set_annotation_resources, set_binaries_configuration, set_sample_configuration
 from modules.fragmentomics import run_fragmentomic_analysis
 from modules.nucleosome import run_wps_analysis, run_tss_analysis
@@ -8,7 +16,6 @@ from modules.copy_number import run_cn_workflow
 from modules.small_variants import run_small_variant_detection
 from modules.methylation import run_methylation_analysis
 
-main_dir = os.path.dirname(os.path.realpath(__file__))
 
 def get_args():
 
