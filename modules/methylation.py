@@ -237,12 +237,22 @@ def deconvolve_tissues_with_nanomix(bin_dict, sample, docker_output, output_dir,
     output_file = os.path.join(output_path, f"{sample.name}_tissue-proportions_nanomix_5hmC.txt")
 
     # Construct the Docker command
+    #nanomix_command = [
+    #   "docker", "run", "--rm", "-v", f"{atlas_path}:/data/methylation_atlas",
+    #   "-v", f"{docker_output}/METHYLATION:/data/output_dir", "bdolmo/nanomix:1.0.0",
+    #   "/bin/bash", "-c",
+    #    f"nanomix deconvolute -a /data/methylation_atlas /data/output_dir/{os.path.basename(methyl_nanomix_bed)} > /data/output_dir/{sample.name}_tissue-proportions_nanomix_5hmC.txt"
+    # ]
     nanomix_command = [
-        "docker", "run", "--rm", "-v", f"{atlas_path}:/data/methylation_atlas",
-        "-v", f"{docker_output}/METHYLATION:/data/output_dir", "bdolmo/nanomix:1.0.0",
-        "/bin/bash", "-c",
-        f"nanomix deconvolute -a /data/methylation_atlas /data/output_dir/{os.path.basename(methyl_nanomix_bed)} > /data/output_dir/{sample.name}_tissue-proportions_nanomix_5hmC.txt"
+        f"nanomix",  # Use the locally installed nanomix script
+        "deconvolute",
+        "-a", atlas_path,  # Path to the methylation atlas
+        f"{docker_output}/METHYLATION/{os.path.basename(methyl_nanomix_bed)}",
+        ">",  # Redirect output
+        f"{docker_output}/METHYLATION/{sample.name}_tissue-proportions_nanomix_5hmC.txt"
     ]
+
+
     if not os.path.isfile(output_file):
         # Run the command
         try:
