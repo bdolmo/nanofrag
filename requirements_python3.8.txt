@@ -1,0 +1,10 @@
+bx_python
+matplotlib
+natsort
+numpy
+pandas
+pysam
+rdata
+scikit_learn
+scipy
+seaborn
