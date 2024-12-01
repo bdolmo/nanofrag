@@ -86,6 +86,7 @@ def run_ichorcna_docker(input_bam, output_dir, docker_output, wig_file_path, sam
             "--outDir", f"{docker_output}/CNA"  # Update to point to the desired output directory
         ]
 
+
         print(" ".join(ichorcna_command))
 
         try:
@@ -96,9 +97,9 @@ def run_ichorcna_docker(input_bam, output_dir, docker_output, wig_file_path, sam
         except subprocess.CalledProcessError as e:
             print(f"Error in ichorCNA command: {e}")
 
-    cna_plot = seg_file.replace(".seg.txt", ".cna.png")
-    rdata_file = seg_file.replace(".seg.txt", ".RData")
-    plot_cna_genomewide(sample_id, rdata_file, cna_plot)
+    #cna_plot = seg_file.replace(".seg.txt", ".cna.png")
+    #rdata_file = seg_file.replace(".seg.txt", ".RData")
+    #plot_cna_genomewide(sample_id, rdata_file, cna_plot)
 
 
 
