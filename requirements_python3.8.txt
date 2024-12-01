@@ -4,7 +4,7 @@ natsort
 numpy
 pandas
 pysam
-rdata
+rdata==0.11.2
 scikit_learn
 scipy
 seaborn
