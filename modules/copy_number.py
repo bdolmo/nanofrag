@@ -65,26 +65,26 @@ def run_ichorcna_docker(input_bam, output_dir, docker_output, wig_file_path, sam
         #    "--scStates", "\"c(1,3)\"", "--txnE", "0.9999", "--txnStrength", "10000",
         #    "--outDir", "/output"
         #]
+
         ichorcna_command = [
-            "Rscript", "/opt/ichorCNA/scripts/runIchorCNA.R",  # Path to the installed ichorCNA script
+            "Rscript", "/opt/ichorCNA/scripts/runIchorCNA.R",
             "--id", sample_id,
             "--WIG", f"{docker_output}/FRAGMENTATION/{wig_name}",  # Update to point to the local file system
-            "--ploidy", "c(2,3)",
-            "--normal", "c(0.5,0.6,0.7,0.8,0.9)",
+            "--ploidy", "\"c(2,3)\"",
+            "--normal", "\"c(0.5,0.6,0.7,0.8,0.9)\"",
             "--maxCN", "5",
-            "--gcWig", "/opt/ichorCNA/extdata/gc_hg38_1000kb.wig",  # Adjust to the correct local path
-            "--mapWig", "/opt/ichorCNA/extdata/map_hg38_1000kb.wig",
-            "--centromere", "/opt/ichorCNA/extdata/GRCh38.GCA_000001405.2_centromere_acen.txt",
+            "--gcWig", "/opt/ichorCNA/inst/extdata/gc_hg38_1000kb.wig",
+            "--mapWig", "/opt/ichorCNA/inst/extdata/map_hg38_1000kb.wig",
+            "--centromere", "/opt/ichorCNA/inst/extdata/GRCh38.GCA_000001405.2_centromere_acen.txt",
             "--includeHOMD", "False",
             "--estimateNormal", "True",
             "--estimatePloidy", "True",
             "--estimateScPrevalence", "True",
-            "--scStates", "c(1,3)",
+            "--scStates", "\"c(1,3)\"",
             "--txnE", "0.9999",
             "--txnStrength", "10000",
             "--outDir", f"{docker_output}/CNA"  # Update to point to the desired output directory
         ]
-
 
         print(" ".join(ichorcna_command))
 
