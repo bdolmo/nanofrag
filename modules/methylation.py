@@ -127,18 +127,29 @@ def run_modkit_pileup(bin_dict, reference_fasta, threads, input_bam, pileup_bed,
         cmd.append("--combine-strands")
 
     if not os.path.isfile(pileup_bed):
-        msg = f" INFO: Performing methylation analysis for {input_bam}"
+        msg = f"INFO: Performing methylation analysis for {input_bam}"
         print(msg)
         # Execute the command
         try:
-            subprocess.run(cmd, check=True)
-            msg = " INFO: modkit pileup completed successfully"
+            result = subprocess.run(
+                " ".join(cmd),
+                shell=True,
+                check=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                text=True  # Ensure output is captured as strings
+            )
+            msg = "INFO: modkit pileup completed successfully"
             print(msg)
+            print("Command output:")
+            print(result.stdout)
         except subprocess.CalledProcessError as e:
             msg = f"Error occurred during modkit pileup: {e}"
             print(msg)
+            print("Error output:")
+            print(e.stderr)
     else:
-        msg = f" INFO: Skipping methylation analysis for {input_bam}"
+        msg = f"INFO: Skipping methylation analysis for {input_bam}"
         print(msg)
 
 def plot_deconvolution(sample_name, input_file, output_png):
