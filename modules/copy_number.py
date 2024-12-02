@@ -90,18 +90,18 @@ def run_ichorcna_docker(input_bam, output_dir, docker_output, wig_file_path, sam
         print(" ".join(ichorcna_command))
 
         try:
-            print("Running ichorCNA analysis...")
+            print(" INFO: Running ichorCNA analysis...")
             # subprocess.run(ichorcna_command, check=True)
             subprocess.run(" ".join(ichorcna_command), shell=True, check=True)
-            print(f"ichorCNA analysis completed. Results saved in {output_dir}")
+            print(f" INFO: ichorCNA analysis completed. Results saved in {output_dir}")
         except subprocess.CalledProcessError as e:
-            print(f"Error in ichorCNA command: {e}")
+            print(f" ERROR: in ichorCNA command: {e}")
     try:
         cna_plot = seg_file.replace(".seg.txt", ".cna.png")
         rdata_file = seg_file.replace(".seg.txt", ".RData")
         plot_cna_genomewide(sample_id, rdata_file, cna_plot)
     except:
-        print("ERROR: could not read RData")
+        print(" ERROR: could not read RData")
     else:
         pass
 

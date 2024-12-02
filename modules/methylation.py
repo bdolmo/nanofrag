@@ -256,7 +256,7 @@ def deconvolve_tissues_with_nanomix(bin_dict, sample, docker_output, output_dir,
     if not os.path.isfile(output_file):
         # Run the command
         try:
-            subprocess.run(nanomix_command, shell=True, check=True)
+            subprocess.run(" ".join(nanomix_command), shell=True, check=True)
             print(f"Nanomix deconvolution completed. Output saved to {output_file}")
         except subprocess.CalledProcessError as e:
             print(f"Error running nanomix deconvolution: {e}")
