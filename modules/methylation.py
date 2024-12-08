@@ -258,19 +258,38 @@ def deconvolve_tissues_with_nanomix(bin_dict, sample, docker_output, output_dir,
         f"nanomix",  # Use the locally installed nanomix script
         "deconvolute",
         "-a", atlas_path,  # Path to the methylation atlas
-        f"{docker_output}/METHYLATION/{os.path.basename(methyl_nanomix_bed)}",
+        f"{output_dir}/METHYLATION/{os.path.basename(methyl_nanomix_bed)}",
         ">",  # Redirect output
-        f"{docker_output}/METHYLATION/{sample.name}_tissue-proportions_nanomix_5hmC.txt"
+        f"{output_dir}/METHYLATION/{sample.name}_tissue-proportions_nanomix_5hmC.txt"
     ]
 
+    try:
+        result = subprocess.run(
+            " ".join(nanomix_command),
+            shell=True,
+            check=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            text=True  # Ensure output is captured as strings
+        )
+        msg = "INFO: modkit pileup completed successfully"
+        print(msg)
+        print("Command output:")
+        print(result.stdout)
+    except subprocess.CalledProcessError as e:
+        msg = f"Error occurred during modkit pileup: {e}"
+        print(msg)
+        print("Error output:")
+        print(e.stderr)
 
-    if not os.path.isfile(output_file):
-        # Run the command
-        try:
-            subprocess.run(" ".join(nanomix_command), shell=True, check=True)
-            print(f"Nanomix deconvolution completed. Output saved to {output_file}")
-        except subprocess.CalledProcessError as e:
-            print(f"Error running nanomix deconvolution: {e}")
+
+    #if not os.path.isfile(output_file):
+        # # Run the command
+    #    try:
+    #        subprocess.run(" ".join(nanomix_command), shell=True, check=True)
+    #        print(f"Nanomix deconvolution completed. Output saved to {output_file}")
+    #    except subprocess.CalledProcessError as e:
+    #        print(f"Error running nanomix deconvolution: {e}")
     output_png = os.path.join(output_dir, f"{sample.name}.nanomix.deconvolution.png")
     plot_deconvolution(sample.name, output_file, output_png)
 
