@@ -255,7 +255,7 @@ def deconvolve_tissues_with_nanomix(bin_dict, sample, docker_output, output_dir,
     #    f"nanomix deconvolute -a /data/methylation_atlas /data/output_dir/{os.path.basename(methyl_nanomix_bed)} > /data/output_dir/{sample.name}_tissue-proportions_nanomix_5hmC.txt"
     # ]
     nanomix_command = [
-        f"nanomix",  # Use the locally installed nanomix script
+        f"/opt/nanomix_venv/bin/nanomix",  # Use the locally installed nanomix script
         "deconvolute",
         "-a", atlas_path,  # Path to the methylation atlas
         f"{output_dir}/{os.path.basename(methyl_nanomix_bed)}",
