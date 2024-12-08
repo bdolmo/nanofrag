@@ -242,9 +242,9 @@ def deconvolve_tissues_with_nanomix(bin_dict, sample, docker_output, output_dir,
                     o.write(f"{tmp[0]}\t{tmp[1]}\t{tmp[2]}\t{tmp[9]}\t{tmp[11]}\n")
 
     # Define paths for Docker command
-    atlas_path = os.path.abspath(atlas_bed)
-    output_path = os.path.abspath(output_dir)
-    methylation_input = os.path.abspath(methyl_nanomix_bed)
+    atlas_path = atlas_bed
+    output_path = output_dir
+    methylation_input = methyl_nanomix_bed
     output_file = os.path.join(output_path, f"{sample.name}_tissue-proportions_nanomix_5hmC.txt")
 
     # Construct the Docker command
